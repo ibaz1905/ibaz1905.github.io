@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Optime! Invaders</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            overflow-x: hidden; 
+            display: flex; 
+            flex-direction: column; 
+            min-height: 100vh; 
+            background-color: #020617; /* slate-950 */
+            color: #f8fafc; /* slate-50 */
+        }
+        
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .main-content-wrapper { flex-grow: 1; display: flex; flex-direction: column; }
+        
+        /* Game Input Animations */
+        .input-correct { animation: input-correct 0.4s ease; }
+        .input-wrong { animation: input-wrong 0.4s ease; }
+        @keyframes input-correct {
+            0%, 100% { background-color: #020617; border-color: #10b981; box-shadow: none; }
+            50% { background-color: #064e3b; border-color: #34d399; box-shadow: 0 0 15px rgba(16, 185, 129, 0.5); }
+        }
+        @keyframes input-wrong {
+            0%, 100% { background-color: #020617; border-color: #ef4444; box-shadow: none; }
+            50% { background-color: #7f1d1d; border-color: #f87171; box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); transform: translateX(5px); }
+            25%, 75% { transform: translateX(-5px); }
+        }
+
+        /* Custom Scrollbar for Dark Theme */
+        .editor-scroll::-webkit-scrollbar { width: 6px; }
+        .editor-scroll::-webkit-scrollbar-track { background: #0f172a; }
+        .editor-scroll::-webkit-scrollbar-thumb { background-color: #334155; border-radius: 10px; }
+        
+        textarea { outline: none; }
+        
+        /* Modal Backdrop */
+        #modal-overlay { backdrop-filter: blur(8px); transition: all 0.3s ease; }
+
+        /* Canvas glow */
+        canvas {
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.1) inset;
+            border-radius: 1rem;
+        }
+    </style>
+</head>
+<body id="app-body" class="transition-all duration-500 selection:bg-cyan-500 selection:text-white">
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="fixed inset-0 bg-slate-950/80 z-[200] hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in duration-200">
+            <h3 id="modal-title" class="text-xl font-black text-white mb-4 italic">Confirmation</h3>
+            <p id="modal-body" class="text-slate-400 text-sm mb-8 leading-relaxed"></p>
+            <div class="flex gap-3">
+                <button id="modal-cancel" class="flex-1 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl hover:bg-slate-700 transition-colors">Cancel</button>
+                <button id="modal-confirm" class="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-900/50">Proceed</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content-wrapper p-4 md:p-8 flex flex-col justify-center">
+        <!-- ==================== VIEW: HOME ==================== -->
+        <div id="home-view" class="max-w-3xl w-full mx-auto animate-in fade-in zoom-in duration-500 my-auto">
+            <div class="text-center mb-16">
+                <h1 class="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 mb-4 italic tracking-tight">The Optime! Invaders</h1>
+                <p class="text-slate-400 text-lg">Type the definition to fire your lasers. Defend the base.</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-6">
+                <button onclick="showCreateView()" class="group bg-slate-900 p-8 rounded-3xl shadow-xl hover:shadow-cyan-900/20 transition-all border border-slate-800 text-left active:scale-95">
+                    <div class="w-14 h-14 bg-slate-800 text-cyan-400 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-cyan-500 group-hover:text-slate-900 transition-colors shadow-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white mb-2">Create Target Data</h2>
+                    <p class="text-sm text-slate-500">Manually construct a new set of terms and definitions.</p>
+                </button>
+                
+                <button onclick="showImportView()" class="group bg-slate-900 p-8 rounded-3xl shadow-xl hover:shadow-emerald-900/20 transition-all border border-slate-800 text-left active:scale-95">
+                    <div class="w-14 h-14 bg-slate-800 text-emerald-400 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-emerald-500 group-hover:text-slate-900 transition-colors shadow-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white mb-2">Import Mission</h2>
+                    <p class="text-sm text-slate-500">Paste JSON data from a previous session to resume defense.</p>
+                </button>
+            </div>
+
+            <!-- NEW SAMPLE SET SECTION -->
+            <div class="mt-12 pt-8 border-t border-slate-800 text-center animate-in fade-in duration-700 delay-200">
+                <h3 class="text-lg font-bold text-slate-300 mb-2">Need a training simulation?</h3>
+                <p class="text-sm text-slate-500 mb-6">Load the pre-configured sample data to test the defense systems.</p>
+                <button onclick="loadSampleSet()" class="px-8 py-3.5 bg-slate-800 text-cyan-400 font-bold rounded-2xl hover:bg-slate-700 transition-colors border border-slate-700 shadow-lg active:scale-95 inline-flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                    </svg>
+                    Launch Sample Simulation
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== VIEW: IMPORT ==================== -->
+        <div id="import-view" class="hidden max-w-2xl w-full mx-auto animate-in fade-in zoom-in duration-300 my-auto">
+            <div class="bg-slate-900 p-8 rounded-3xl shadow-2xl border border-slate-800">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-black text-white italic">Import Mission Data</h2>
+                    <button onclick="showHomeView()" class="text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors">Abort</button>
+                </div>
+                <p class="text-sm text-slate-400 mb-4">Paste the JSON configuration string below.</p>
+                <textarea id="import-textarea" class="w-full h-48 p-4 rounded-xl border border-slate-700 bg-slate-950 focus:bg-slate-900 focus:border-cyan-500 focus:outline-none text-sm font-mono text-cyan-300 resize-none mb-6 shadow-inner" placeholder='{"title": "Mission 1", "words": [...] }'></textarea>
+                
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="h-px bg-slate-800 flex-1"></div>
+                    <span class="text-xs font-bold text-slate-600 uppercase tracking-widest">OR</span>
+                    <div class="h-px bg-slate-800 flex-1"></div>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-4">
+                    <label class="cursor-pointer flex-1 bg-slate-800 text-cyan-400 font-bold py-4 rounded-2xl hover:bg-slate-700 transition-all text-center border-2 border-dashed border-slate-600 hover:border-cyan-500 flex items-center justify-center">
+                        <span>Upload .json File</span>
+                        <input type="file" class="hidden" accept=".json" onchange="handleFileUpload(event)">
+                    </label>
+                    <button onclick="processImport()" class="flex-1 bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-black py-4 rounded-2xl shadow-lg hover:shadow-cyan-500/30 transition-all hover:-translate-y-1">Initialize Sequence</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== VIEW: CREATE/EDIT ==================== -->
+        <div id="create-view" class="hidden max-w-5xl w-full mx-auto animate-in fade-in zoom-in duration-300 my-auto">
+            <div class="bg-slate-900 p-6 md:p-8 rounded-3xl shadow-2xl border border-slate-800 flex flex-col h-[85vh]">
+                
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 shrink-0 border-b border-slate-800 pb-6">
+                    <div class="flex-1 min-w-0">
+                        <input type="text" id="set-title-input" maxlength="60" class="w-full text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 italic border-b-2 border-transparent hover:border-slate-700 focus:border-cyan-500 focus:outline-none transition-colors px-2 py-1 bg-transparent truncate" placeholder="Operation Title...">
+                    </div>
+                    <div class="flex gap-3 shrink-0 items-center flex-wrap">
+                        <button onclick="copyCurrentSet()" class="px-4 py-2.5 bg-slate-800 text-cyan-400 font-bold rounded-xl hover:bg-slate-700 transition-colors text-sm flex items-center gap-2 border border-slate-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg> Copy JSON
+                        </button>
+                        <button onclick="downloadCurrentSet()" class="px-4 py-2.5 bg-slate-800 text-cyan-400 font-bold rounded-xl hover:bg-slate-700 transition-colors text-sm flex items-center gap-2 border border-slate-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> Export
+                        </button>
+                        <button id="cancel-edit-btn" onclick="cancelEdit()" class="text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors px-3">Abort</button>
+                        <button onclick="saveAndStart()" class="px-6 py-2.5 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg shadow-emerald-900/50 hover:bg-emerald-400 transition-colors text-sm">Lock & Launch</button>
+                    </div>
+                </div>
+
+                <!-- Header Row -->
+                <div class="grid grid-cols-12 gap-4 px-4 pb-2 text-xs font-bold text-slate-500 uppercase tracking-widest shrink-0">
+                    <div class="col-span-12 md:col-span-3">Term</div>
+                    <div class="col-span-12 md:col-span-8">Definitions</div>
+                    <div class="col-span-12 md:col-span-1 text-center hidden md:block">Del</div>
+                </div>
+
+                <!-- Dynamic Rows -->
+                <div id="editor-rows" class="flex-1 overflow-y-auto editor-scroll p-2 space-y-3">
+                    <!-- Rows injected via JS -->
+                </div>
+
+                <div class="pt-6 mt-4 border-t border-slate-800 shrink-0">
+                    <button onclick="addEditorRow()" class="w-full py-4 border-2 border-dashed border-slate-700 text-slate-400 font-bold rounded-2xl hover:border-cyan-500 hover:text-cyan-400 hover:bg-cyan-950/30 transition-all flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                        Add Target Profile
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== VIEW: GAME ==================== -->
+        <div id="game-view" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto animate-in fade-in duration-500 h-full">
+            
+            <!-- Game HUD -->
+            <div class="flex justify-between items-end mb-4 px-2 shrink-0">
+                <div>
+                    <h2 id="game-set-title" class="text-2xl font-black text-white italic tracking-tight truncate max-w-xs md:max-w-md">Set Title</h2>
+                    <div class="text-sm font-mono text-cyan-400 mt-1" id="score-display">SCORE: 000000</div>
+                </div>
+                <div class="text-right">
+                    <div class="flex items-center justify-end gap-4 mb-2">
+                        <button onclick="openSettings()" class="text-xs font-bold text-slate-500 hover:text-cyan-400 uppercase tracking-widest transition-colors flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            Settings
+                        </button>
+                        <button onclick="abortGame()" class="text-xs font-bold text-slate-500 hover:text-red-400 uppercase tracking-widest transition-colors">Abort Mission</button>
+                    </div>
+                    <div class="flex gap-1 justify-end" id="lives-display">
+                        <!-- Lives drawn here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="flex-1 relative w-full rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden mb-4 min-h-[400px]" id="canvas-container">
+                <canvas id="gameCanvas" class="block w-full h-full"></canvas>
+                
+                <!-- Game Over Overlay inside Canvas Container -->
+                <div id="game-over-overlay" class="absolute inset-0 bg-slate-950/90 z-50 hidden flex-col items-center justify-center p-6 text-center animate-in zoom-in duration-300">
+                    <h2 class="text-5xl font-black text-red-500 italic mb-2 tracking-widest uppercase">Mission Failed</h2>
+                    <p class="text-slate-300 text-lg mb-8">Base destroyed.</p>
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8 shadow-2xl w-full max-w-sm">
+                        <div class="text-sm text-slate-500 uppercase font-bold tracking-widest mb-1">Final Score</div>
+                        <div class="text-4xl font-mono text-cyan-400 font-black" id="final-score">0</div>
+                    </div>
+                    <div class="flex gap-4">
+                        <button onclick="showHomeView()" class="px-6 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl hover:bg-slate-700 transition-colors">Headquarters</button>
+                        <button onclick="startGame()" class="px-8 py-3 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg shadow-emerald-900/50 hover:bg-emerald-400 transition-colors">Re-deploy</button>
+                    </div>
+                </div>
+
+                <!-- Settings Overlay inside Canvas Container -->
+                <div id="settings-overlay" class="absolute inset-0 bg-slate-950/95 z-40 hidden flex-col items-center justify-center p-6 text-center animate-in zoom-in duration-300">
+                    <h2 class="text-4xl font-black text-cyan-400 italic mb-6 tracking-widest uppercase">Settings</h2>
+                    
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8 shadow-2xl w-full max-w-sm text-left">
+                        <div class="mb-6">
+                            <label class="block text-sm text-slate-500 uppercase font-bold tracking-widest mb-3">Game Speed</label>
+                            <div class="flex gap-2">
+                                <button onclick="attemptSetSpeed('slow')" id="btn-speed-slow" class="flex-1 py-2 rounded-lg bg-slate-800 text-slate-400 text-sm font-bold border border-slate-700 hover:bg-slate-700 transition-colors">Slow</button>
+                                <button onclick="attemptSetSpeed('normal')" id="btn-speed-normal" class="flex-1 py-2 rounded-lg bg-cyan-900 text-cyan-400 text-sm font-bold border border-cyan-700 transition-colors">Normal</button>
+                                <button onclick="attemptSetSpeed('fast')" id="btn-speed-fast" class="flex-1 py-2 rounded-lg bg-slate-800 text-slate-400 text-sm font-bold border border-slate-700 hover:bg-slate-700 transition-colors">Fast</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-500 uppercase font-bold tracking-widest mb-3">Max Lives</label>
+                            <div class="flex gap-2">
+                                <button onclick="attemptSetLives(1)" id="btn-lives-1" class="flex-1 py-2 rounded-lg bg-slate-800 text-slate-400 text-sm font-bold border border-slate-700 hover:bg-slate-700 transition-colors">1</button>
+                                <button onclick="attemptSetLives(3)" id="btn-lives-3" class="flex-1 py-2 rounded-lg bg-cyan-900 text-cyan-400 text-sm font-bold border border-cyan-700 transition-colors">3</button>
+                                <button onclick="attemptSetLives(5)" id="btn-lives-5" class="flex-1 py-2 rounded-lg bg-slate-800 text-slate-400 text-sm font-bold border border-slate-700 hover:bg-slate-700 transition-colors">5</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="resumeGame()" class="px-8 py-3 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg shadow-emerald-900/50 hover:bg-emerald-400 transition-colors">Resume Mission</button>
+                </div>
+
+            </div>
+
+            <!-- Input Terminal -->
+            <div class="shrink-0 flex gap-4 items-center bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-xl">
+                <div class="text-cyan-500 font-black text-xl animate-pulse">>_</div>
+                <input type="text" id="game-input" autocomplete="off" 
+                    class="w-full bg-transparent border-b-2 border-slate-700 focus:border-cyan-400 focus:outline-none text-xl font-bold text-white font-mono py-2 transition-colors"
+                    placeholder="Enter definition...">
+            </div>
+            <div class="text-center mt-3 text-xs text-slate-500 font-mono tracking-widest uppercase">
+                <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-400 border border-slate-700 shadow-sm">ENTER</kbd> to fire
+            </div>
+        </div>
+
+    </div>
+    
+    <footer class="text-center py-6 text-slate-600 text-xs font-semibold tracking-widest mt-auto shrink-0 font-mono">
+        © Isaac Bazlov 2026
+    </footer>
+
+    <script>
+        // --- Data Structure ---
+        const sampleSetData = {
+            "title": "Operation: Latin Basics",
+            "words": [
+                { "term": "agricola", "meanings": ["farmer"] },
+                { "term": "aqua", "meanings": ["water"] },
+                { "term": "femina", "meanings": ["woman"] },
+                { "term": "fortuna", "meanings": ["fortune", "luck"] },
+                { "term": "nauta", "meanings": ["sailor"] }
+            ]
+        };
+
+        let currentSet = { title: "Basic Training", words: [] };
+        
+        // --- Game Config Variables ---
+        let configSpeed = 'normal'; // 'slow', 'normal', 'fast'
+        let configLives = 3;        // 1, 3, 5
+
+        // --- UI View Management ---
+        const views = {
+            home: document.getElementById('home-view'),
+            create: document.getElementById('create-view'),
+            import: document.getElementById('import-view'),
+            game: document.getElementById('game-view')
+        };
+
+        const uiElements = {
+            modalOverlay: document.getElementById('modal-overlay'),
+            modalTitle: document.getElementById('modal-title'),
+            modalBody: document.getElementById('modal-body'),
+            modalCancel: document.getElementById('modal-cancel'),
+            modalConfirm: document.getElementById('modal-confirm'),
+        };
+
+        function hideAllViews() {
+            Object.values(views).forEach(v => v.classList.add('hidden'));
+            if(gameLoopId) cancelAnimationFrame(gameLoopId);
+        }
+
+        function showHomeView() {
+            hideAllViews();
+            views.home.classList.remove('hidden');
+        }
+
+        function showImportView() {
+            hideAllViews();
+            document.getElementById('import-textarea').value = '';
+            views.import.classList.remove('hidden');
+        }
+
+        let isEditingSet = false;
+
+        function showCreateView() {
+            hideAllViews();
+            views.create.classList.remove('hidden');
+            document.getElementById('cancel-edit-btn').innerText = "Abort";
+            document.getElementById('set-title-input').value = "";
+            document.getElementById('editor-rows').innerHTML = "";
+            addEditorRow(); 
+        }
+
+        function showModal(title, body, onConfirm) {
+            uiElements.modalTitle.innerText = title;
+            uiElements.modalBody.innerText = body;
+            uiElements.modalOverlay.classList.remove('hidden');
+            uiElements.modalOverlay.classList.add('flex');
+            
+            const handleConfirm = () => { onConfirm(); closeModal(); };
+            const handleCancel = () => { closeModal(); };
+            
+            uiElements.modalConfirm.onclick = handleConfirm;
+            uiElements.modalCancel.onclick = handleCancel;
+        }
+
+        function closeModal() {
+            uiElements.modalOverlay.classList.add('hidden');
+            uiElements.modalOverlay.classList.remove('flex');
+        }
+
+        function loadSampleSet() {
+            currentSet = JSON.parse(JSON.stringify(sampleSetData));
+            startGame();
+        }
+
+        // --- Create / Edit Logic ---
+        function autoResize(element) {
+            element.style.height = 'auto';
+            element.style.height = element.scrollHeight + 'px';
+        }
+
+        function updateRowLayout(element) {
+            const container = element.closest('.def-container');
+            const defs = Array.from(container.querySelectorAll('textarea'));
+            let lastFilledIndex = -1;
+            defs.forEach((def, index) => {
+                if (!def.classList.contains('hidden')) autoResize(def);
+                if (def.value.trim() !== '') lastFilledIndex = index;
+            });
+
+            const visibleCount = Math.min(5, Math.max(2, lastFilledIndex + 2));
+
+            defs.forEach((def, index) => {
+                if (index < visibleCount) {
+                    def.classList.remove('hidden');
+                    autoResize(def);
+                    if (index === visibleCount - 1 && def.value.trim() === '') {
+                        def.style.flex = "1 1 0%";
+                    } else {
+                        def.style.flex = "3 1 0%";
+                    }
+                } else {
+                    def.classList.add('hidden');
+                    def.value = ""; 
+                }
+            });
+        }
+
+        function createRowHTML(term = '', m1='', m2='', m3='', m4='', m5='') {
+            return `
+                <div class="editor-row grid grid-cols-12 gap-3 items-start bg-slate-950 p-4 rounded-2xl border border-slate-800 relative group">
+                    <div class="col-span-12 md:col-span-3">
+                        <textarea class="row-term w-full p-3 rounded-xl border border-slate-700 bg-slate-900 focus:border-cyan-500 focus:outline-none text-sm font-bold text-emerald-400 resize-none overflow-hidden transition-all" placeholder="Term" rows="1" oninput="autoResize(this)">${term}</textarea>
+                    </div>
+                    <div class="col-span-12 md:col-span-8 flex gap-2 def-container transition-all">
+                        <textarea class="row-m1 p-3 rounded-xl border border-slate-700 bg-slate-900 focus:border-cyan-500 focus:outline-none text-sm text-slate-300 resize-none overflow-hidden transition-all duration-300" placeholder="Def 1 (req)" rows="1" oninput="updateRowLayout(this)">${m1}</textarea>
+                        <textarea class="row-m2 p-3 rounded-xl border border-transparent bg-transparent focus:bg-slate-900 hover:bg-slate-800 focus:border-cyan-500 focus:outline-none text-sm text-slate-300 resize-none overflow-hidden transition-all duration-300" placeholder="Def 2" rows="1" oninput="updateRowLayout(this)">${m2}</textarea>
+                        <textarea class="row-m3 p-3 rounded-xl border border-transparent bg-transparent focus:bg-slate-900 hover:bg-slate-800 focus:border-cyan-500 focus:outline-none text-sm text-slate-300 resize-none overflow-hidden transition-all duration-300 hidden" placeholder="Def 3" rows="1" oninput="updateRowLayout(this)">${m3}</textarea>
+                        <textarea class="row-m4 p-3 rounded-xl border border-transparent bg-transparent focus:bg-slate-900 hover:bg-slate-800 focus:border-cyan-500 focus:outline-none text-sm text-slate-300 resize-none overflow-hidden transition-all duration-300 hidden" placeholder="Def 4" rows="1" oninput="updateRowLayout(this)">${m4}</textarea>
+                        <textarea class="row-m5 p-3 rounded-xl border border-transparent bg-transparent focus:bg-slate-900 hover:bg-slate-800 focus:border-cyan-500 focus:outline-none text-sm text-slate-300 resize-none overflow-hidden transition-all duration-300 hidden" placeholder="Def 5" rows="1" oninput="updateRowLayout(this)">${m5}</textarea>
+                    </div>
+                    <div class="col-span-12 md:col-span-1 flex justify-center items-center h-full">
+                        <button onclick="this.closest('.editor-row').remove()" class="text-slate-600 hover:text-red-500 transition-colors p-2 mt-1" title="Remove Term">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function addEditorRow() {
+            const rows = document.getElementById('editor-rows');
+            rows.insertAdjacentHTML('beforeend', createRowHTML());
+            const newRow = rows.lastElementChild;
+            updateRowLayout(newRow.querySelector('.row-m1'));
+            rows.scrollTop = rows.scrollHeight;
+        }
+
+        function cancelEdit() {
+            showHomeView();
+        }
+
+        function saveAndStart() {
+            const title = document.getElementById('set-title-input').value.trim() || "Operation: Unknown";
+            const rows = document.querySelectorAll('.editor-row');
+            const newWords = [];
+
+            rows.forEach(row => {
+                const term = row.querySelector('.row-term').value.trim();
+                const m1 = row.querySelector('.row-m1').value.trim().toLowerCase();
+                const m2 = row.querySelector('.row-m2').value.trim().toLowerCase();
+                const m3 = row.querySelector('.row-m3').value.trim().toLowerCase();
+                const m4 = row.querySelector('.row-m4').value.trim().toLowerCase();
+                const m5 = row.querySelector('.row-m5').value.trim().toLowerCase();
+
+                if (term && m1) {
+                    const meanings = [m1, m2, m3, m4, m5].filter(m => m !== "");
+                    newWords.push({ term, meanings });
+                }
+            });
+
+            if (newWords.length === 0) {
+                showModal("Error", "You must configure at least one target and definition.", () => {});
+                return;
+            }
+
+            currentSet = { title, words: newWords };
+            startGame();
+        }
+
+        function copyCurrentSet() {
+            const title = document.getElementById('set-title-input').value.trim() || "Operation: Unknown";
+            const rows = document.querySelectorAll('.editor-row');
+            const tempWords = [];
+            rows.forEach(row => {
+                const term = row.querySelector('.row-term').value.trim();
+                const meanings = [
+                    row.querySelector('.row-m1').value.trim(),
+                    row.querySelector('.row-m2').value.trim(),
+                    row.querySelector('.row-m3').value.trim(),
+                    row.querySelector('.row-m4').value.trim(),
+                    row.querySelector('.row-m5').value.trim()
+                ].filter(m => m !== "").map(m => m.toLowerCase());
+                if (term && meanings.length > 0) tempWords.push({ term, meanings });
+            });
+
+            const exportObj = { title, words: tempWords };
+            const dataStr = JSON.stringify(exportObj, null, 2);
+            
+            const tempTextArea = document.createElement("textarea");
+            tempTextArea.value = dataStr;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            try {
+                document.execCommand('copy');
+                showModal("Success!", "Mission data copied to clipboard successfully.", () => {});
+            } catch (err) {
+                showModal("Error", "Failed to copy to clipboard.", () => {});
+            }
+            document.body.removeChild(tempTextArea);
+        }
+
+        function downloadCurrentSet() {
+            const title = document.getElementById('set-title-input').value.trim() || "Custom_Operation";
+            const rows = document.querySelectorAll('.editor-row');
+            const tempWords = [];
+            rows.forEach(row => {
+                const term = row.querySelector('.row-term').value.trim();
+                const meanings = [
+                    row.querySelector('.row-m1').value.trim(),
+                    row.querySelector('.row-m2').value.trim(),
+                    row.querySelector('.row-m3').value.trim(),
+                    row.querySelector('.row-m4').value.trim(),
+                    row.querySelector('.row-m5').value.trim()
+                ].filter(m => m !== "").map(m => m.toLowerCase());
+                if (term && meanings.length > 0) tempWords.push({ term, meanings });
+            });
+
+            const exportObj = { title, words: tempWords };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 2));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", `${title.replace(/\s+/g, '_')}_data.json`);
+            dlAnchorElem.click();
+        }
+
+        function processImport() {
+            try {
+                const text = document.getElementById('import-textarea').value;
+                const parsed = JSON.parse(text);
+                if (!parsed.words || !Array.isArray(parsed.words) || parsed.words.length === 0) throw new Error("Missing 'words' array.");
+                const validWords = parsed.words.filter(w => w.term && w.meanings && w.meanings.length > 0);
+                if (validWords.length === 0) throw new Error("No valid targets found.");
+                
+                currentSet = { title: parsed.title || "Imported Operation", words: validWords };
+                startGame();
+            } catch (e) {
+                showModal("Decryption Failed", "Invalid JSON format. \n\n" + e.message, () => {});
+            }
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (!parsed.words || !Array.isArray(parsed.words)) {
+                        throw new Error("Missing 'words' array.");
+                    }
+                    const validWords = parsed.words.filter(w => w.term && w.meanings && w.meanings.length > 0);
+                    if (validWords.length === 0) throw new Error("No valid targets found.");
+                    
+                    currentSet = {
+                        title: parsed.title || "Imported Operation",
+                        words: validWords
+                    };
+                    startGame();
+                } catch (err) {
+                    showModal("Decryption Failed", "Invalid JSON format. \n\n" + err.message, () => {});
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset input
+        }
+
+        // ==========================================
+        // GAME ENGINE
+        // ==========================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+        const inputEl = document.getElementById('game-input');
+        
+        let gameLoopId;
+        let score = 0;
+        let lives = configLives;
+        let level = 1;
+        let isGameOver = false;
+        let isPaused = false;
+
+        let activeEnemies = [];
+        let lasers = [];
+        let particles = [];
+        let floatingTexts = [];
+        
+        let spawnTimer = 0;
+
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        
+        // --- Settings Management ---
+        function updateSettingsUI() {
+            ['slow','normal','fast'].forEach(val => {
+                const btn = document.getElementById(`btn-speed-${val}`);
+                if(val === configSpeed) {
+                    btn.className = "flex-1 py-2 rounded-lg bg-cyan-900 text-cyan-400 text-sm font-bold border border-cyan-700 transition-colors";
+                } else {
+                    btn.className = "flex-1 py-2 rounded-lg bg-slate-800 text-slate-400 text-sm font-bold border border-slate-700 hover:bg-slate-700 transition-colors";
+                }
+            });
+            [1,3,5].forEach(val => {
+                const btn = document.getElementById(`btn-lives-${val}`);
+                if(val === configLives) {
+                    btn.className = "flex-1 py-2 rounded-lg bg-cyan-900 text-cyan-400 text-sm font-bold border border-cyan-700 transition-colors";
+                } else {
+                    btn.className = "flex-1 py-2 rounded-lg bg-slate-800 text-slate-400 text-sm font-bold border border-slate-700 hover:bg-slate-700 transition-colors";
+                }
+            });
+        }
+
+        function openSettings() {
+            if(isGameOver) return;
+            isPaused = true;
+            updateSettingsUI();
+            document.getElementById('settings-overlay').classList.remove('hidden');
+            document.getElementById('settings-overlay').classList.add('flex');
+        }
+
+        function resumeGame() {
+            document.getElementById('settings-overlay').classList.add('hidden');
+            document.getElementById('settings-overlay').classList.remove('flex');
+            isPaused = false;
+            lastTime = performance.now(); // Reset delta-time anchor
+            inputEl.focus();
+        }
+
+        function attemptSetSpeed(val) {
+            if(val === configSpeed) return;
+            showModal("Restart Mission?", "Changing game speed will restart the current mission. Proceed?", () => {
+                configSpeed = val;
+                document.getElementById('settings-overlay').classList.add('hidden');
+                document.getElementById('settings-overlay').classList.remove('flex');
+                startGame();
+            });
+        }
+
+        function attemptSetLives(val) {
+            if(val === configLives) return;
+            showModal("Restart Mission?", "Changing max lives will restart the current mission. Proceed?", () => {
+                configLives = val;
+                document.getElementById('settings-overlay').classList.add('hidden');
+                document.getElementById('settings-overlay').classList.remove('flex');
+                startGame();
+            });
+        }
+
+        function startGame() {
+            hideAllViews();
+            views.game.classList.remove('hidden');
+            document.getElementById('game-over-overlay').classList.add('hidden');
+            document.getElementById('game-set-title').innerText = currentSet.title;
+            resizeCanvas();
+
+            score = 0;
+            lives = configLives;
+            level = 1;
+            activeEnemies = [];
+            lasers = [];
+            particles = [];
+            floatingTexts = [];
+            spawnTimer = 60; // Start with quick spawn
+            isGameOver = false;
+            isPaused = false;
+
+            inputEl.value = '';
+            inputEl.disabled = false;
+            inputEl.focus();
+            updateHUD();
+
+            lastTime = performance.now();
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function abortGame() {
+            isPaused = true;
+            showModal("Abort Mission?", "Are you sure you want to return to headquarters? Current progress will be lost.", () => {
+                showHomeView();
+            });
+            // Override modal cancel to resume the game quietly
+            uiElements.modalCancel.onclick = () => {
+                closeModal();
+                isPaused = false;
+                lastTime = performance.now();
+                inputEl.focus();
+            };
+        }
+
+        function updateHUD() {
+            document.getElementById('score-display').innerText = `SCORE: ${score.toString().padStart(6, '0')}`;
+            
+            const livesContainer = document.getElementById('lives-display');
+            livesContainer.innerHTML = '';
+            for(let i=0; i < configLives; i++) {
+                livesContainer.innerHTML += `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ${i < lives ? 'text-emerald-400' : 'text-slate-800'}" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                    </svg>
+                `;
+            }
+        }
+
+        function createExplosion(x, y, colorStr) {
+            for(let i=0; i<15; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    life: 1.0,
+                    color: colorStr
+                });
+            }
+        }
+
+        // --- Game Loop ---
+        let lastTime = 0;
+        function gameLoop(time) {
+            if(isGameOver) return;
+            const dt = (time - lastTime) / 16.66; // Normalize to 60fps
+            lastTime = time;
+
+            if(!isPaused) {
+                update(dt);
+            }
+            draw();
+
+            if(!isGameOver) {
+                gameLoopId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function update(dt) {
+            // Level and config speed scaling
+            level = 1 + Math.floor(score / 200);
+            
+            let speedMult = 1.0;
+            if (configSpeed === 'slow') speedMult = 0.6;
+            if (configSpeed === 'fast') speedMult = 1.5;
+
+            const baseSpeed = (0.5 + (level * 0.15)) * speedMult;
+            const spawnInterval = Math.max(40, 120 - (level * 10)) / speedMult; // Faster spawns over time
+
+            // Spawn Enemies
+            spawnTimer += dt;
+            if(spawnTimer >= spawnInterval) {
+                spawnTimer = 0;
+                const targetWord = currentSet.words[Math.floor(Math.random() * currentSet.words.length)];
+                
+                // Measure text roughly to keep it on screen
+                ctx.font = 'bold 24px Inter';
+                const tw = ctx.measureText(targetWord.term).width;
+                const minX = tw/2 + 20;
+                const maxX = canvas.width - tw/2 - 20;
+
+                activeEnemies.push({
+                    term: targetWord.term,
+                    meanings: targetWord.meanings,
+                    x: Math.random() * (maxX - minX) + minX,
+                    y: -30,
+                    speed: baseSpeed * (0.8 + Math.random() * 0.4), // Slight random speed variance
+                    width: tw
+                });
+            }
+
+            // Update Enemies
+            for(let i = activeEnemies.length - 1; i >= 0; i--) {
+                const e = activeEnemies[i];
+                e.y += e.speed * dt;
+                
+                if(e.y > canvas.height) {
+                    // Missed! Spawn floating text showing the correct answer
+                    floatingTexts.push({
+                        text: e.meanings.join(' / '),
+                        x: e.x,
+                        y: canvas.height - 40,
+                        vy: -1.5, // Float upwards
+                        life: 1.0
+                    });
+
+                    activeEnemies.splice(i, 1);
+                    lives--;
+                    updateHUD();
+                    
+                    // Screen shake/flash effect
+                    inputEl.parentElement.classList.remove('input-wrong');
+                    void inputEl.parentElement.offsetWidth; // trigger reflow
+                    inputEl.parentElement.classList.add('input-wrong');
+
+                    if(lives <= 0) {
+                        triggerGameOver();
+                    }
+                }
+            }
+
+            // Update Floating Texts
+            for(let i = floatingTexts.length - 1; i >= 0; i--) {
+                const ft = floatingTexts[i];
+                ft.y += ft.vy * dt;
+                ft.life -= 0.008 * dt; // Fade out slowly
+                if(ft.life <= 0) {
+                    floatingTexts.splice(i, 1);
+                }
+            }
+
+            // Update Lasers
+            for(let i = lasers.length - 1; i >= 0; i--) {
+                const l = lasers[i];
+                l.progress += 0.15 * dt;
+                if(l.progress >= 1) {
+                    lasers.splice(i, 1);
+                }
+            }
+
+            // Update Particles
+            for(let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.life -= 0.05 * dt;
+                if(p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function draw() {
+            // Background
+            ctx.fillStyle = '#020617'; // slate-950
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Base/Turret
+            const baseX = canvas.width / 2;
+            const baseY = canvas.height;
+            
+            // Turret glow
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#06b6d4';
+            ctx.fillStyle = '#06b6d4'; // cyan-500
+            
+            ctx.beginPath();
+            ctx.moveTo(baseX - 25, baseY);
+            ctx.lineTo(baseX - 15, baseY - 30);
+            ctx.lineTo(baseX + 15, baseY - 30);
+            ctx.lineTo(baseX + 25, baseY);
+            ctx.fill();
+            
+            // Turret barrel
+            ctx.fillRect(baseX - 5, baseY - 50, 10, 20);
+            ctx.shadowBlur = 0; // reset
+
+            // Draw Particles
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
+
+            // Draw Floating Texts
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            floatingTexts.forEach(ft => {
+                ctx.globalAlpha = Math.max(0, ft.life);
+                ctx.font = 'bold 20px Inter';
+                ctx.fillStyle = '#ef4444'; // red-500
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ef4444';
+                ctx.fillText(ft.text, ft.x, ft.y);
+            });
+            ctx.globalAlpha = 1.0;
+            ctx.shadowBlur = 0;
+
+            // Draw Enemies
+            ctx.font = 'bold 22px JetBrains Mono';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            activeEnemies.forEach(e => {
+                // Glow effect
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#10b981'; // emerald-500
+                ctx.fillStyle = '#34d399'; // emerald-400
+                ctx.fillText(e.term, e.x, e.y);
+            });
+            ctx.shadowBlur = 0;
+
+            // Draw Lasers
+            lasers.forEach(l => {
+                ctx.strokeStyle = '#22d3ee'; // cyan-400
+                ctx.lineWidth = 4;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#22d3ee';
+                
+                // Calculate current laser head position
+                const currentX = l.startX + (l.targetX - l.startX) * l.progress;
+                const currentY = l.startY + (l.targetY - l.startY) * l.progress;
+
+                ctx.beginPath();
+                ctx.moveTo(l.startX, l.startY);
+                ctx.lineTo(currentX, currentY);
+                ctx.stroke();
+            });
+            ctx.shadowBlur = 0;
+        }
+
+        // --- Input Handling ---
+        inputEl.addEventListener('keydown', (e) => {
+            if(e.key === 'Enter') {
+                e.preventDefault();
+                fireWeapon();
+            }
+        });
+
+        function fireWeapon() {
+            if(isGameOver || isPaused) return;
+            const typed = inputEl.value.trim().toLowerCase();
+            if(!typed) return;
+
+            let hitEnemy = null;
+            let hitIndex = -1;
+
+            // Find lowest enemy on screen that matches the typed translation
+            // Check in reverse so if multiple enemies have the same translation, we hit the lowest one
+            let lowestY = -1;
+            for(let i = 0; i < activeEnemies.length; i++) {
+                const e = activeEnemies[i];
+                // Check if exact match OR contains full string (generous matching)
+                const isMatch = e.meanings.some(m => 
+                    typed === m || (typed.includes(m) && m.length > 3)
+                );
+
+                if(isMatch && e.y > lowestY) {
+                    hitEnemy = e;
+                    hitIndex = i;
+                    lowestY = e.y;
+                }
+            }
+
+            const inputContainer = inputEl.parentElement;
+            inputContainer.classList.remove('input-correct', 'input-wrong');
+            void inputContainer.offsetWidth; // trigger reflow
+
+            if(hitEnemy) {
+                // Boom
+                lasers.push({
+                    startX: canvas.width / 2,
+                    startY: canvas.height - 50,
+                    targetX: hitEnemy.x,
+                    targetY: hitEnemy.y,
+                    progress: 0
+                });
+                
+                createExplosion(hitEnemy.x, hitEnemy.y, '#34d399');
+                activeEnemies.splice(hitIndex, 1);
+                
+                score += 10;
+                updateHUD();
+                inputContainer.classList.add('input-correct');
+            } else {
+                // Miss
+                inputContainer.classList.add('input-wrong');
+            }
+            
+            inputEl.value = '';
+        }
+
+        function triggerGameOver() {
+            isGameOver = true;
+            inputEl.disabled = true;
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('game-over-overlay').classList.remove('hidden');
+            document.getElementById('game-over-overlay').classList.add('flex');
+        }
+
+    </script>
+</body>
+</html>

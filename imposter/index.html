@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optime! Imposter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        /* Completely Custom Sleek Cursors */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #0f172a; /* slate-900 */
+            color: #f8fafc; /* slate-50 */
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            /* Default sleek black cursor */
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%230f172a' stroke='white' stroke-width='1.5' stroke-linejoin='round'%3E%3Cpath d='M4 4 L19 10 L12 12 L10 19 Z'/%3E%3C/svg%3E") 4 4, auto; 
+        }
+
+        /* Indigo colored cursor for clickable elements */
+        button, a, label, .cursor-pointer, .tooltip-trigger,
+        button *, a *, label *, .cursor-pointer *, .tooltip-trigger * {
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%234f46e5' stroke='white' stroke-width='1.5' stroke-linejoin='round'%3E%3Cpath d='M4 4 L19 10 L12 12 L10 19 Z'/%3E%3C/svg%3E") 4 4, pointer !important;
+        }
+        
+        /* Custom indigo text cursor (I-beam) and blinking caret for typing */
+        input, textarea, input *, textarea * {
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cg stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4 L12 20 M9 4 L15 4 M9 20 L15 20'/%3E%3C/g%3E%3Cg stroke='%234f46e5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4 L12 20 M9 4 L15 4 M9 20 L15 20'/%3E%3C/g%3E%3C/svg%3E") 12 12, text !important;
+            caret-color: #4f46e5 !important;
+            outline: none;
+        }
+
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Loader Animation */
+        .loader {
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top: 4px solid #4f46e5; /* indigo-600 */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Player Avatar Positioning & Styling */
+        .player-avatar {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            transition: all 0.5s ease;
+        }
+
+        .imposter-reveal {
+            animation: imposter-pulse 2s infinite;
+        }
+        @keyframes imposter-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7); }
+            50% { box-shadow: 0 0 20px 10px rgba(225, 29, 72, 0); }
+        }
+
+        .turn-active .avatar-circle {
+            animation: turn-pulse 1.5s infinite;
+            border: 4px solid #fbbf24; /* amber-400 */
+        }
+        @keyframes turn-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.6); }
+            50% { box-shadow: 0 0 15px 8px rgba(251, 191, 36, 0); }
+        }
+
+        .voting-active .player-avatar {
+            cursor: pointer;
+        }
+        .voting-active .player-avatar:hover .avatar-circle {
+            border: 4px solid #ef4444; /* red-500 */
+            transform: scale(1.1);
+        }
+
+        /* Speech Bubble for Clues */
+        .speech-bubble {
+            position: absolute;
+            bottom: 100%;
+            margin-bottom: 12px;
+            background: white;
+            color: #0f172a;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 900;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            white-space: nowrap;
+            z-index: 20;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: popIn 0.3s forwards cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 6px 6px 0;
+            border-style: solid;
+            border-color: white transparent transparent transparent;
+        }
+        @keyframes popIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Color Picker Radio Buttons */
+        .color-radio:checked + div {
+            border-color: white;
+            transform: scale(1.2);
+            box-shadow: 0 0 10px rgba(255,255,255,0.3);
+        }
+        
+        /* Custom Scrollbar for Chat */
+        .chat-scroll::-webkit-scrollbar { width: 4px; }
+        .chat-scroll::-webkit-scrollbar-track { background: transparent; }
+        .chat-scroll::-webkit-scrollbar-thumb { background-color: #334155; border-radius: 10px; }
+
+    </style>
+</head>
+<body class="selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header -->
+    <header class="py-6 text-center border-b border-slate-800 bg-slate-900 z-10 relative shrink-0">
+        <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-500 italic tracking-tight">Optime! Imposter</h1>
+    </header>
+
+    <main class="flex-grow flex flex-col items-center justify-center p-4 relative" id="main-container">
+        
+        <!-- ==================== VIEW: LOADING ==================== -->
+        <div id="view-loading" class="flex flex-col items-center animate-in fade-in duration-500 w-full max-w-sm">
+            <div class="loader mb-4"></div>
+            <p class="text-slate-400 font-mono text-sm uppercase tracking-widest">Connecting to Server...</p>
+        </div>
+
+        <!-- ==================== VIEW: SETUP PROFILE ==================== -->
+        <div id="view-setup" class="hidden w-full max-w-md bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl animate-in zoom-in duration-300">
+            <h2 class="text-2xl font-bold text-white mb-6 text-center">Create Profile</h2>
+            
+            <div class="mb-6">
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Display Name</label>
+                <input type="text" id="setup-name" maxlength="12" class="w-full bg-slate-900 border-2 border-slate-700 rounded-xl p-4 text-white font-bold text-center focus:border-indigo-500 transition-colors" placeholder="Enter your name">
+            </div>
+
+            <div class="mb-8">
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">Choose Color</label>
+                <div class="flex justify-center gap-3 flex-wrap" id="color-picker">
+                    <!-- Colors injected by JS -->
+                </div>
+            </div>
+
+            <button onclick="saveProfile()" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-900/50 hover:bg-indigo-500 transition-colors">Continue</button>
+            <p id="setup-error" class="text-red-400 text-sm font-bold text-center mt-3 hidden"></p>
+        </div>
+
+        <!-- ==================== VIEW: MAIN MENU ==================== -->
+        <div id="view-menu" class="hidden w-full max-w-md animate-in fade-in duration-300">
+            <!-- Join Game -->
+            <div class="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-xl mb-6">
+                <h2 class="text-xl font-bold text-white mb-4 text-center">Join a Game</h2>
+                <input type="text" id="join-code" maxlength="4" class="w-full bg-slate-900 border-2 border-slate-700 rounded-xl p-4 text-3xl text-center text-indigo-400 font-mono font-black tracking-[0.5em] focus:border-indigo-500 transition-colors uppercase mb-4" placeholder="0000">
+                <button onclick="joinRoom()" class="w-full py-4 bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-900/50 hover:bg-emerald-500 transition-colors">Join Lobby</button>
+                <p id="join-error" class="text-red-400 text-sm font-bold text-center mt-3 hidden"></p>
+            </div>
+
+            <!-- Host Game -->
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl">
+                <p class="text-xs text-slate-500 text-center mb-3 font-bold uppercase tracking-widest">Host Access</p>
+                <div class="flex gap-2">
+                    <input type="password" id="host-code" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-300 focus:border-slate-500 transition-colors" placeholder="Secret Code...">
+                    <button onclick="hostRoom()" class="px-6 bg-slate-700 text-white font-bold rounded-lg hover:bg-slate-600 transition-colors text-sm">Host</button>
+                </div>
+                <p id="host-error" class="text-red-400 text-sm font-bold text-center mt-3 hidden"></p>
+            </div>
+        </div>
+
+        <!-- ==================== VIEW: THE TABLE ==================== -->
+        <div id="view-table" class="hidden w-full max-w-2xl flex flex-col items-center animate-in fade-in duration-500 pb-24">
+            
+            <!-- Room Info Bar -->
+            <div class="bg-slate-800 border border-slate-700 rounded-full px-6 py-2 mb-4 flex items-center gap-4 shadow-lg shrink-0">
+                <span class="text-sm font-bold text-slate-400 uppercase tracking-widest">Room:</span>
+                <span id="display-room-code" class="text-2xl font-mono font-black text-indigo-400 tracking-widest">0000</span>
+                <button onclick="copyCode()" class="text-slate-400 hover:text-white transition-colors" title="Copy Code">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" /><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" /></svg>
+                </button>
+            </div>
+
+            <!-- Game Status Banner -->
+            <div id="status-banner" class="w-full max-w-md bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-8 text-center hidden shadow-xl shrink-0">
+                <h3 id="status-title" class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Status</h3>
+                <p id="status-text" class="text-2xl font-black text-white italic">Waiting...</p>
+            </div>
+
+            <!-- The Circular Table -->
+            <div class="relative w-[300px] h-[300px] md:w-[400px] md:h-[400px] mb-8 shrink-0">
+                <!-- The actual table graphic -->
+                <div class="absolute inset-[40px] md:inset-[60px] bg-slate-800 rounded-full border-4 border-slate-700 shadow-[0_0_50px_rgba(0,0,0,0.5)_inset] flex flex-col items-center justify-center text-center p-4">
+                    <span id="table-center-text" class="text-slate-500 font-bold uppercase tracking-widest text-sm">Waiting for players...</span>
+                </div>
+                <!-- Players injected here via JS -->
+                <div id="players-container" class="absolute inset-0 pointer-events-none"></div>
+            </div>
+
+            <!-- Dynamic Control Panel -->
+            <div id="control-panel" class="w-full max-w-md bg-slate-900 border border-slate-700 p-6 rounded-2xl shadow-2xl shrink-0 z-10">
+                <!-- Content injected dynamically based on state -->
+            </div>
+
+            <button onclick="leaveRoom()" class="mt-6 text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors uppercase tracking-widest shrink-0">Leave Room</button>
+        </div>
+
+    </main>
+
+    <!-- Live Chat Widget -->
+    <div id="chat-widget" class="hidden fixed bottom-4 left-4 w-[280px] md:w-80 bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl flex-col z-[100] transition-transform duration-300 transform translate-y-[calc(100%-3rem)]">
+        <div class="h-12 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-4 cursor-pointer rounded-t-2xl hover:bg-slate-800 transition-colors" onclick="toggleChat()">
+            <span class="text-white font-bold text-sm flex items-center gap-2">💬 Live Chat</span>
+            <span id="chat-unread" class="hidden bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">New</span>
+        </div>
+        <div id="chat-messages" class="h-56 chat-scroll overflow-y-auto p-4 space-y-2 text-sm bg-slate-800">
+            <!-- Messages injected here -->
+        </div>
+        <div class="p-3 bg-slate-900 rounded-b-2xl flex gap-2 items-center">
+            <input type="text" id="chat-input" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs focus:border-indigo-500 transition-colors" placeholder="Type a message..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+            <button onclick="sendChatMessage()" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-indigo-500 transition-colors shadow-md">Send</button>
+        </div>
+    </div>
+
+    <footer class="text-center py-6 text-slate-600 text-xs font-semibold tracking-widest shrink-0 font-mono border-t border-slate-800">
+        © Isaac Bazlov 2026
+    </footer>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Globals ---
+        let db, auth, user, appId;
+        let myProfile = { name: '', color: '#3b82f6' }; 
+        let currentRoomId = null;
+        let isHost = false;
+        let unsubscribeRoom = null;
+        let roomStateCache = null;
+
+        // Palette
+        const COLORS = [
+            { id: 'red', hex: '#ef4444' },
+            { id: 'orange', hex: '#f97316' },
+            { id: 'yellow', hex: '#eab308' },
+            { id: 'green', hex: '#22c55e' },
+            { id: 'teal', hex: '#14b8a6' },
+            { id: 'blue', hex: '#3b82f6' },
+            { id: 'indigo', hex: '#6366f1' },
+            { id: 'purple', hex: '#a855f7' },
+            { id: 'pink', hex: '#ec4899' }
+        ];
+
+        // Built-in Word Bank
+        const WORD_BANK = [
+            "Hospital", "Bank", "School", "Restaurant", "Airport", "Library", "Supermarket", "Cinema", "Museum", "Gym",
+            "Apple", "Banana", "Orange", "Strawberry", "Grape", "Watermelon", "Pineapple", "Mango", "Peach", "Cherry",
+            "Dog", "Cat", "Elephant", "Tiger", "Lion", "Giraffe", "Monkey", "Penguin", "Kangaroo", "Dolphin",
+            "Car", "Airplane", "Train", "Bicycle", "Helicopter", "Boat", "Motorcycle", "Bus", "Subway", "Truck",
+            "Computer", "Smartphone", "Television", "Camera", "Headphones", "Laptop", "Tablet", "Smartwatch", "Speaker", "Keyboard",
+            "Guitar", "Piano", "Violin", "Drums", "Flute", "Saxophone", "Trumpet", "Cello", "Bass", "Clarinet"
+        ];
+
+        const MY_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyAroQ5vztHwAP5Z1SaQlqX726JwV94U8V0",
+            authDomain: "optimeimposter.firebaseapp.com",
+            projectId: "optimeimposter",
+            storageBucket: "optimeimposter.firebasestorage.app",
+            messagingSenderId: "174084553877",
+            appId: "1:174084553877:web:a701d6903d08d14426af9c",
+            measurementId: "G-5MGHNZ9DCK"
+        };
+
+        // --- Initialization ---
+        const initFirebase = async () => {
+            try {
+                const isCanvas = typeof __firebase_config !== 'undefined';
+                const firebaseConfig = isCanvas ? JSON.parse(__firebase_config) : MY_FIREBASE_CONFIG;
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'optime-imposter';
+
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (isCanvas && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (u) => {
+                    if (u) {
+                        user = u;
+                        buildColorPicker();
+                        showView('view-setup');
+                    }
+                });
+            } catch (err) {
+                console.error("Firebase Init Error:", err);
+                document.getElementById('view-loading').innerHTML = `
+                    <div class='text-red-500 text-center px-4 w-full'>
+                        <p class='font-bold mb-2 text-lg'>Error connecting to server.</p>
+                        <p class='text-xs font-mono bg-slate-900/50 p-3 rounded-lg border border-slate-700/50 break-words'>${err.message}</p>
+                    </div>
+                `;
+            }
+        };
+
+        // --- UI Setup ---
+        function showView(viewId) {
+            ['view-loading', 'view-setup', 'view-menu', 'view-table'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+                document.getElementById(id).classList.remove('flex');
+            });
+            const active = document.getElementById(viewId);
+            active.classList.remove('hidden');
+            if (viewId === 'view-loading' || viewId === 'view-table') active.classList.add('flex');
+        }
+
+        function buildColorPicker() {
+            const container = document.getElementById('color-picker');
+            container.innerHTML = '';
+            COLORS.forEach((c, idx) => {
+                const checked = idx === 5 ? 'checked' : ''; 
+                container.innerHTML += `
+                    <label class="cursor-pointer relative">
+                        <input type="radio" name="playerColor" value="${c.hex}" class="color-radio sr-only" ${checked}>
+                        <div class="w-10 h-10 rounded-full border-2 border-transparent transition-all" style="background-color: ${c.hex};"></div>
+                    </label>
+                `;
+            });
+        }
+
+        window.saveProfile = () => {
+            const nameInput = document.getElementById('setup-name').value.trim();
+            const errEl = document.getElementById('setup-error');
+            
+            if (nameInput.length < 2) {
+                errEl.innerText = "Name must be at least 2 characters.";
+                errEl.classList.remove('hidden');
+                return;
+            }
+            myProfile.name = nameInput;
+            myProfile.color = document.querySelector('input[name="playerColor"]:checked').value;
+            
+            errEl.classList.add('hidden');
+            showView('view-menu');
+        };
+
+        // --- Live Chat Logic ---
+        window.toggleChat = () => {
+            const chat = document.getElementById('chat-widget');
+            chat.classList.toggle('translate-y-[calc(100%-3rem)]');
+            document.getElementById('chat-unread').classList.add('hidden');
+        };
+
+        window.sendChatMessage = async () => {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text || !currentRoomId) return;
+            input.value = '';
+            
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
+            await updateDoc(roomRef, {
+                chat: arrayUnion({ sender: myProfile.name, color: myProfile.color, text: text })
+            });
+        };
+
+        function renderChat(data) {
+            const msgs = data.chat || [];
+            const container = document.getElementById('chat-messages');
+            
+            const isNew = container.children.length < msgs.length;
+            
+            container.innerHTML = msgs.map(m => `
+                <div class="leading-tight"><strong style="color:${m.color}">${m.sender}:</strong> <span class="text-slate-300">${m.text}</span></div>
+            `).join('');
+            
+            if (isNew) {
+                container.scrollTop = container.scrollHeight;
+                const chatWidget = document.getElementById('chat-widget');
+                // Show badge only if minimized
+                if (chatWidget.classList.contains('translate-y-[calc(100%-3rem)]') && container.children.length > 0) {
+                    document.getElementById('chat-unread').classList.remove('hidden');
+                }
+            }
+        }
+
+
+        // --- Multiplayer Connection ---
+        window.hostRoom = async () => {
+            const codeInput = document.getElementById('host-code').value;
+            const errEl = document.getElementById('host-error');
+
+            if (codeInput !== '?quACK!') {
+                errEl.innerText = "Invalid Host Code."; errEl.classList.remove('hidden'); return;
+            }
+            errEl.classList.add('hidden');
+
+            const roomId = Math.floor(1000 + Math.random() * 9000).toString();
+            
+            try {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                const initialData = {
+                    hostUid: user.uid,
+                    state: 'lobby', // lobby, playing, discussion, voting, vote_results, finished
+                    secretWord: '',
+                    imposterUid: '',
+                    players: [{ uid: user.uid, name: myProfile.name, color: myProfile.color }],
+                    clues: [],
+                    chat: [],
+                    currentTurnIndex: 0,
+                    votes: {},
+                    votedOutUid: null,
+                    voteOutcome: null,
+                    imposterCaught: false
+                };
+
+                await setDoc(roomRef, initialData);
+                isHost = true;
+                currentRoomId = roomId;
+                setupRoomListener(roomId);
+            } catch (err) {
+                console.error("Hosting error:", err);
+                errEl.innerText = "Failed to create room."; errEl.classList.remove('hidden');
+            }
+        };
+
+        window.joinRoom = async () => {
+            const joinInput = document.getElementById('join-code').value.trim().toUpperCase();
+            const errEl = document.getElementById('join-error');
+
+            if (joinInput.length !== 4) {
+                errEl.innerText = "Code must be 4 digits."; errEl.classList.remove('hidden'); return;
+            }
+
+            errEl.classList.add('hidden');
+            document.getElementById('view-menu').classList.add('opacity-50', 'pointer-events-none');
+
+            try {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', joinInput);
+                const roomSnap = await getDoc(roomRef);
+
+                if (!roomSnap.exists()) throw new Error("Room not found.");
+                if (roomSnap.data().state !== 'lobby') throw new Error("Game is already in progress.");
+
+                await updateDoc(roomRef, {
+                    players: arrayUnion({ uid: user.uid, name: myProfile.name, color: myProfile.color })
+                });
+
+                isHost = false;
+                currentRoomId = joinInput;
+                setupRoomListener(joinInput);
+            } catch (err) {
+                errEl.innerText = err.message || "Failed to join room.";
+                errEl.classList.remove('hidden');
+            } finally {
+                document.getElementById('view-menu').classList.remove('opacity-50', 'pointer-events-none');
+            }
+        };
+
+        window.leaveRoom = async () => {
+            if (!currentRoomId || !user) return;
+            try {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
+                await updateDoc(roomRef, {
+                    players: arrayRemove({ uid: user.uid, name: myProfile.name, color: myProfile.color })
+                });
+            } catch (err) {}
+
+            if (unsubscribeRoom) unsubscribeRoom();
+            currentRoomId = null;
+            isHost = false;
+            document.getElementById('chat-widget').classList.add('hidden');
+            document.getElementById('chat-widget').classList.remove('flex');
+            showView('view-menu');
+        };
+
+        // Handle browser tab close or refresh to leave room
+        window.addEventListener('beforeunload', () => {
+            if (currentRoomId && user) {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
+                // Fire and forget
+                updateDoc(roomRef, {
+                    players: arrayRemove({ uid: user.uid, name: myProfile.name, color: myProfile.color })
+                }).catch(() => {});
+            }
+        });
+
+        // --- Real-time Sync ---
+        function setupRoomListener(roomId) {
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+            showView('view-table');
+            document.getElementById('display-room-code').innerText = roomId;
+            
+            // Show Chat
+            document.getElementById('chat-widget').classList.remove('hidden');
+            document.getElementById('chat-widget').classList.add('flex');
+
+            unsubscribeRoom = onSnapshot(roomRef, (docSnap) => {
+                if (!docSnap.exists()) {
+                    alert("This room was closed."); window.leaveRoom(); return;
+                }
+
+                const data = docSnap.data();
+                roomStateCache = data;
+                
+                renderChat(data);
+                renderTable(data);
+                updateGameStatus(data);
+                renderControlPanel(data);
+
+                // Host auto-calculates votes when all votes are cast
+                if (isHost && data.state === 'voting' && Object.keys(data.votes || {}).length === data.players.length) {
+                    calculateVotingResults(data, roomRef);
+                }
+
+            }, (error) => { console.error("Listener error:", error); });
+        }
+
+        // --- Core Renderers ---
+        function renderTable(data) {
+            const container = document.getElementById('players-container');
+            container.innerHTML = '';
+            
+            const players = data.players || [];
+            const isPlaying = data.state === 'playing';
+            const isVoting = data.state === 'voting';
+            const isResults = data.state === 'vote_results' || data.state === 'finished';
+            
+            // Check if it's someone's turn
+            let activeTurnUid = null;
+            if (isPlaying && data.currentTurnIndex < players.length) {
+                activeTurnUid = players[data.currentTurnIndex].uid;
+            }
+
+            document.getElementById('table-center-text').innerText = 
+                data.state === 'lobby' ? (players.length < 3 ? "Need 3+ players..." : "Ready to play!") :
+                data.state === 'voting' ? "CAST YOUR VOTE" : "Spyfall";
+
+            // Circle math
+            const centerX = 50; const centerY = 50; const radius = 40; 
+
+            players.forEach((p, i) => {
+                const angle = (i / players.length) * 2 * Math.PI - (Math.PI / 2);
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+
+                const isMe = p.uid === user.uid;
+                const isHostPlayer = p.uid === data.hostUid;
+                const isMyTurn = p.uid === activeTurnUid;
+
+                // Did they give a clue?
+                const myClueObj = (data.clues || []).find(c => c.uid === p.uid);
+                
+                // Render voters in results phase
+                let votersHtml = '';
+                if (isResults) {
+                    const votersForMe = Object.entries(data.votes || {})
+                        .filter(([voterUid, target]) => target === p.uid)
+                        .map(([voterUid]) => data.players.find(pl => pl.uid === voterUid));
+                    
+                    if (votersForMe.length > 0) {
+                        votersHtml = `<div class="absolute -bottom-5 flex justify-center gap-1 z-20 bg-slate-900/90 px-2 py-1 rounded-full border border-slate-700 shadow-md">`;
+                        votersForMe.forEach(voter => {
+                            if(voter) votersHtml += `<div class="w-3 h-3 rounded-full border border-slate-900" style="background-color: ${voter.color}" title="${voter.name}"></div>`;
+                        });
+                        votersHtml += `</div>`;
+                    }
+                }
+
+                // Base container
+                const playerEl = document.createElement('div');
+                playerEl.className = `player-avatar flex flex-col items-center pointer-events-auto ${isMyTurn ? 'turn-active' : ''} ${isVoting && !isMe ? 'voting-active' : ''}`;
+                playerEl.style.left = `${x}%`;
+                playerEl.style.top = `${y}%`;
+
+                // If voting, add click handler
+                if (isVoting && !isMe) {
+                    playerEl.onclick = () => window.castVote(p.uid);
+                }
+
+                let crownHtml = isHostPlayer ? `<div class="absolute -top-4 text-xl drop-shadow-md z-10">👑</div>` : '';
+                let clueHtml = myClueObj ? `<div class="speech-bubble border-2" style="border-color: ${p.color};">${myClueObj.word}</div>` : '';
+                let meHighlight = isMe ? 'ring-4 ring-white ring-offset-2 ring-offset-slate-900' : 'border-4 border-transparent';
+
+                playerEl.innerHTML = `
+                    <div class="relative flex justify-center mb-1">
+                        ${crownHtml}
+                        ${clueHtml}
+                        <div class="avatar-circle w-12 h-12 md:w-14 md:h-14 rounded-full shadow-lg flex items-center justify-center text-white font-bold text-xl transition-all ${meHighlight}" style="background-color: ${p.color};">
+                            ${p.name.charAt(0).toUpperCase()}
+                        </div>
+                        ${votersHtml}
+                    </div>
+                    <div class="bg-slate-900/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-white border border-slate-700 shadow-md whitespace-nowrap">
+                        ${p.name}
+                    </div>
+                `;
+
+                container.appendChild(playerEl);
+            });
+        }
+
+        function updateGameStatus(data) {
+            const banner = document.getElementById('status-banner');
+            const title = document.getElementById('status-title');
+            const text = document.getElementById('status-text');
+
+            if (data.state === 'lobby') {
+                banner.classList.add('hidden'); return;
+            }
+            banner.classList.remove('hidden');
+
+            if (data.state === 'playing' || data.state === 'discussion') {
+                if (data.imposterUid === user.uid) {
+                    banner.className = 'w-full max-w-md rounded-2xl p-4 mb-8 text-center shadow-xl shrink-0 border border-rose-500 bg-rose-950/30 imposter-reveal z-10 relative';
+                    title.innerText = "Alert";
+                    title.className = "text-xs font-bold uppercase tracking-widest mb-1 text-rose-400";
+                    text.innerText = "YOU ARE THE IMPOSTER";
+                    text.className = "text-2xl font-black italic text-rose-500";
+                } else {
+                    banner.className = 'w-full max-w-md rounded-2xl p-4 mb-8 text-center shadow-xl shrink-0 border border-emerald-500 bg-emerald-950/30 z-10 relative';
+                    title.innerText = "The Secret Word Is";
+                    title.className = "text-xs font-bold uppercase tracking-widest mb-1 text-emerald-400";
+                    text.innerText = data.secretWord;
+                    text.className = "text-2xl font-black italic text-emerald-400";
+                }
+            } else if (data.state === 'voting') {
+                banner.className = 'w-full max-w-md rounded-2xl p-4 mb-8 text-center shadow-xl shrink-0 border border-amber-500 bg-amber-950/30 z-10 relative';
+                title.innerText = "Phase";
+                title.className = "text-xs font-bold uppercase tracking-widest mb-1 text-amber-400";
+                text.innerText = "VOTING";
+                text.className = "text-2xl font-black italic text-amber-500";
+            } else if (data.state === 'vote_results') {
+                banner.className = 'w-full max-w-md rounded-2xl p-4 mb-8 text-center shadow-xl shrink-0 border border-indigo-500 bg-indigo-950/30 z-10 relative';
+                title.innerText = "Results";
+                title.className = "text-xs font-bold uppercase tracking-widest mb-1 text-indigo-400";
+                
+                if (data.voteOutcome === 'tie') text.innerText = "It was a tie!";
+                else if (data.voteOutcome === 'skip') text.innerText = "Vote Skipped!";
+                else {
+                    const outPlayer = data.players.find(p => p.uid === data.votedOutUid);
+                    text.innerText = `${outPlayer?.name} was voted out.`;
+                }
+                text.className = "text-2xl font-black italic text-indigo-400";
+            } else if (data.state === 'finished') {
+                const imposterObj = data.players.find(p => p.uid === data.imposterUid);
+                const imposterName = imposterObj ? imposterObj.name : "Someone";
+                const bgClass = data.imposterCaught ? 'border-emerald-500 bg-emerald-950/30' : 'border-rose-500 bg-rose-950/30';
+                
+                banner.className = `w-full max-w-md rounded-2xl p-4 mb-8 text-center shadow-xl shrink-0 border ${bgClass} z-10 relative`;
+                title.innerText = "Game Over";
+                title.className = `text-xs font-bold uppercase tracking-widest mb-1 ${data.imposterCaught ? 'text-emerald-400' : 'text-rose-400'}`;
+                text.innerText = `Imposter was ${imposterName}`;
+                text.className = `text-2xl font-black italic ${data.imposterCaught ? 'text-emerald-400' : 'text-rose-500'}`;
+            }
+        }
+
+        function renderControlPanel(data) {
+            const panel = document.getElementById('control-panel');
+            panel.innerHTML = ''; 
+            
+            // 1. LOBBY
+            if (data.state === 'lobby') {
+                if (isHost) {
+                    panel.innerHTML = `
+                        <h3 class="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-4 text-center">Host Panel</h3>
+                        <div class="flex flex-col gap-2">
+                            <input type="text" id="secret-word-input" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white font-bold text-center focus:border-indigo-500 transition-colors" placeholder="Enter a Custom Word...">
+                            <button onclick="window.gameAction('start_custom')" class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition-colors shadow-lg">Start with Custom Word</button>
+                        </div>
+                        <div class="flex items-center gap-4 my-4">
+                            <div class="h-px bg-slate-800 flex-1"></div>
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">OR</span>
+                            <div class="h-px bg-slate-800 flex-1"></div>
+                        </div>
+                        <button onclick="window.gameAction('start_random')" class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-900/20">Generate Random Word</button>
+                        <p id="host-action-error" class="text-red-400 text-xs font-bold text-center mt-3 hidden"></p>
+                    `;
+                } else {
+                    panel.innerHTML = `<p class="text-slate-400 font-bold text-center italic">Waiting for host to start the game...</p>`;
+                }
+            } 
+            
+            // 2. PLAYING (Turn-based Clues)
+            else if (data.state === 'playing') {
+                const activePlayer = data.players[data.currentTurnIndex];
+                if (activePlayer.uid === user.uid) {
+                    panel.innerHTML = `
+                        <h3 class="text-xs font-bold text-amber-400 uppercase tracking-widest mb-4 text-center">Your Turn</h3>
+                        <div class="flex gap-2">
+                            <input type="text" id="clue-input" maxlength="15" class="flex-1 bg-slate-800 border-2 border-amber-500/50 rounded-xl p-3 text-white font-bold text-center focus:border-amber-500 transition-colors" placeholder="1-word clue..." onkeypress="if(event.key==='Enter') window.gameAction('submit_clue')">
+                            <button onclick="window.gameAction('submit_clue')" class="px-6 bg-amber-500 text-slate-900 font-black rounded-xl hover:bg-amber-400 transition-colors shadow-lg shadow-amber-900/20">Send</button>
+                        </div>
+                    `;
+                    setTimeout(() => { const el = document.getElementById('clue-input'); if(el) el.focus(); }, 100);
+                } else {
+                    panel.innerHTML = `<p class="text-slate-400 font-bold text-center italic animate-pulse">Waiting for ${activePlayer.name} to give a clue...</p>`;
+                }
+            }
+
+            // 3. DISCUSSION 
+            else if (data.state === 'discussion') {
+                if (isHost) {
+                    panel.innerHTML = `
+                        <h3 class="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-4 text-center">Round Complete</h3>
+                        <div class="flex flex-col gap-3">
+                            <button onclick="window.gameAction('start_voting')" class="w-full py-3 bg-rose-600 text-white font-bold rounded-xl shadow-lg hover:bg-rose-500 transition-colors">Start Voting</button>
+                            <button onclick="window.gameAction('next_round')" class="w-full py-3 bg-slate-800 text-slate-300 font-bold rounded-xl border border-slate-700 hover:bg-slate-700 hover:text-white transition-colors">Go Another Round (No Vote)</button>
+                        </div>
+                    `;
+                } else {
+                    panel.innerHTML = `<p class="text-slate-400 font-bold text-center italic">Round over. Discuss! Waiting for host to call a vote...</p>`;
+                }
+            }
+
+            // 4. VOTING
+            else if (data.state === 'voting') {
+                const myVote = (data.votes || {})[user.uid];
+                if (myVote) {
+                    const votedName = myVote === 'skip' ? 'Skip' : data.players.find(p => p.uid === myVote)?.name || "Someone";
+                    panel.innerHTML = `<p class="text-emerald-400 font-bold text-center italic">You voted: ${votedName}. Waiting for others...</p>`;
+                } else {
+                    panel.innerHTML = `
+                        <h3 class="text-xs font-bold text-amber-400 uppercase tracking-widest mb-4 text-center">Cast Your Vote</h3>
+                        <p class="text-slate-400 font-bold text-center mb-4 text-sm">Click a player's avatar to vote them out, or skip.</p>
+                        <button onclick="window.castVote('skip')" class="w-full py-3 bg-slate-700 text-white font-bold rounded-xl shadow-lg hover:bg-slate-600 transition-colors">Skip Vote</button>
+                    `;
+                }
+            }
+
+            // 5. VOTE RESULTS
+            else if (data.state === 'vote_results') {
+                const skipVoters = Object.entries(data.votes || {})
+                    .filter(([v, target]) => target === 'skip')
+                    .map(([v]) => data.players.find(pl => pl.uid === v));
+                
+                let skipHtml = skipVoters.length > 0 ? 
+                    `<div class="mt-4 p-3 bg-slate-800 rounded-xl text-sm text-center border border-slate-700">
+                        <span class="text-slate-400 font-bold">Voted to Skip:</span> 
+                        <div class="flex justify-center gap-2 mt-2">
+                            ${skipVoters.map(v => `<div class="w-6 h-6 rounded-full border-2 border-slate-900" style="background-color: ${v.color}" title="${v.name}"></div>`).join('')}
+                        </div>
+                    </div>` : '';
+
+                let hostAction = '';
+                if (isHost) {
+                    if (data.voteOutcome === 'tie' || data.voteOutcome === 'skip') {
+                        hostAction = `<button onclick="window.gameAction('next_round')" class="w-full mt-6 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-500 transition-colors">Redo Round</button>`;
+                    } else {
+                        hostAction = `<button onclick="window.gameAction('end_game')" class="w-full mt-6 py-3 bg-rose-600 text-white font-bold rounded-xl shadow-lg hover:bg-rose-500 transition-colors">Reveal Imposter</button>`;
+                    }
+                } else {
+                    hostAction = `<p class="text-slate-500 text-xs text-center mt-6 uppercase tracking-widest">Waiting for host...</p>`;
+                }
+
+                panel.innerHTML = `
+                    <h3 class="text-lg font-black text-white text-center">Voting Summary</h3>
+                    ${skipHtml}
+                    ${hostAction}
+                `;
+            }
+
+            // 6. FINISHED
+            else if (data.state === 'finished') {
+                let resultText = data.imposterCaught 
+                    ? "<span class='text-emerald-400'>The Crew won! The imposter was caught.</span>" 
+                    : "<span class='text-rose-500'>The Imposter won! They escaped the vote.</span>";
+                
+                let hostBtn = isHost ? `<button onclick="window.gameAction('restart_lobby')" class="w-full mt-6 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-500 transition-colors">Return to Lobby</button>` : `<p class="text-slate-500 text-xs text-center mt-6 uppercase tracking-widest">Waiting for host to restart...</p>`;
+
+                panel.innerHTML = `
+                    <p class="text-center font-bold text-lg">${resultText}</p>
+                    ${hostBtn}
+                `;
+            }
+        }
+
+        // --- Game Actions (The Walkie-Talkie) ---
+        window.gameAction = async (actionType) => {
+            if (!currentRoomId || !roomStateCache) return;
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
+            const errEl = document.getElementById('host-action-error');
+
+            try {
+                if (actionType === 'start_custom' || actionType === 'start_random') {
+                    if (!isHost) return;
+                    if (roomStateCache.players.length < 3) {
+                        if(errEl) { errEl.innerText = "Need at least 3 players."; errEl.classList.remove('hidden'); }
+                        return;
+                    }
+
+                    let secretWord = actionType === 'start_random' 
+                        ? WORD_BANK[Math.floor(Math.random() * WORD_BANK.length)] 
+                        : document.getElementById('secret-word-input').value.trim();
+                    
+                    if (!secretWord) {
+                        if(errEl) { errEl.innerText = "Enter a word."; errEl.classList.remove('hidden'); }
+                        return;
+                    }
+
+                    const randomIndex = Math.floor(Math.random() * roomStateCache.players.length);
+                    await updateDoc(roomRef, {
+                        state: 'playing',
+                        secretWord: secretWord,
+                        imposterUid: roomStateCache.players[randomIndex].uid,
+                        clues: [],
+                        currentTurnIndex: 0,
+                        votes: {},
+                        votedOutUid: null,
+                        voteOutcome: null
+                    });
+                } 
+                else if (actionType === 'submit_clue') {
+                    const word = document.getElementById('clue-input').value.trim();
+                    if (!word) return;
+                    if (word.includes(" ")) { alert("One word only!"); return; }
+
+                    const newIndex = roomStateCache.currentTurnIndex + 1;
+                    const isEnd = newIndex >= roomStateCache.players.length;
+
+                    await updateDoc(roomRef, {
+                        clues: arrayUnion({ uid: user.uid, word: word }),
+                        currentTurnIndex: newIndex,
+                        state: isEnd ? 'discussion' : 'playing'
+                    });
+                }
+                else if (actionType === 'next_round') {
+                    if (!isHost) return;
+                    // Wipe clues and votes, redo round
+                    await updateDoc(roomRef, { state: 'playing', clues: [], currentTurnIndex: 0, votes: {}, voteOutcome: null });
+                }
+                else if (actionType === 'start_voting') {
+                    if (!isHost) return;
+                    await updateDoc(roomRef, { state: 'voting' });
+                }
+                else if (actionType === 'end_game') {
+                    if (!isHost) return;
+                    await updateDoc(roomRef, { state: 'finished' });
+                }
+                else if (actionType === 'restart_lobby') {
+                    if (!isHost) return;
+                    await updateDoc(roomRef, { state: 'lobby', clues: [], votes: {}, voteOutcome: null });
+                }
+            } catch (err) {
+                console.error("Game Action Error:", err);
+            }
+        };
+
+        window.castVote = async (targetUid) => {
+            if (roomStateCache.state !== 'voting') return;
+            const currentVotes = roomStateCache.votes || {};
+            if (currentVotes[user.uid]) return; 
+
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
+            try {
+                await updateDoc(roomRef, { [`votes.${user.uid}`]: targetUid });
+            } catch (err) {
+                console.error("Voting error", err);
+            }
+        };
+
+        // Host logic to calculate winner once all votes are in
+        function calculateVotingResults(data, roomRef) {
+            const counts = {};
+            Object.values(data.votes).forEach(target => { counts[target] = (counts[target] || 0) + 1; });
+            
+            let maxVotes = 0;
+            let votedOutUid = null;
+            let isTie = false;
+            
+            for (const [target, count] of Object.entries(counts)) {
+                if (count > maxVotes) {
+                    maxVotes = count;
+                    votedOutUid = target;
+                    isTie = false;
+                } else if (count === maxVotes) {
+                    isTie = true;
+                }
+            }
+
+            let outcome = '';
+            let imposterCaught = false;
+
+            if (isTie) {
+                outcome = 'tie';
+                votedOutUid = null;
+            } else if (votedOutUid === 'skip') {
+                outcome = 'skip';
+                votedOutUid = null;
+            } else {
+                imposterCaught = (votedOutUid === data.imposterUid);
+                outcome = imposterCaught ? 'imposter_caught' : 'innocent_caught';
+            }
+
+            updateDoc(roomRef, {
+                state: 'vote_results',
+                voteOutcome: outcome,
+                votedOutUid: votedOutUid,
+                imposterCaught: imposterCaught
+            });
+        }
+
+        window.copyCode = () => {
+            const code = document.getElementById('display-room-code').innerText;
+            const temp = document.createElement('textarea');
+            temp.value = code;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+            
+            const btn = document.querySelector('button[title="Copy Code"]');
+            const originalColor = btn.className;
+            btn.className = "text-emerald-400 transition-colors";
+            setTimeout(() => { btn.className = originalColor; }, 1000);
+        };
+
+        // Kick off initialization
+        window.addEventListener('DOMContentLoaded', initFirebase);
+
+    </script>
+</body>
+</html>
