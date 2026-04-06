@@ -42,130 +42,229 @@
         textarea { outline: none; }
         
         /* Modal Backdrop */
-        #modal-overlay { backdrop-filter: blur(8px); transition: all 0.3s ease; }
+        #modal-overlay, #auth-modal, #leaderboard-modal { backdrop-filter: blur(8px); transition: all 0.3s ease; }
 
         /* Canvas glow */
         canvas {
             box-shadow: 0 0 30px rgba(6, 182, 212, 0.1) inset;
             border-radius: 1rem;
         }
+
+        /* Loading Spinner */
+        .loader {
+            border: 3px solid #1e293b;
+            border-top: 3px solid #06b6d4;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .category-card { transition: all 0.3s ease; }
+        .category-card:hover { transform: translateY(-2px); }
     </style>
 </head>
-<body id="app-body" class="transition-all duration-500 selection:bg-cyan-500 selection:text-white">
+<body id="app-body" class="transition-all duration-500 selection:bg-cyan-500 selection:text-white relative">
 
-    <!-- Modals -->
+    <!-- Loading Overlay -->
+    <div id="initial-loading" class="fixed inset-0 bg-slate-950 z-[400] flex flex-col items-center justify-center">
+        <div class="loader w-12 h-12 mb-4 border-4"></div>
+        <p class="text-cyan-400 font-mono tracking-widest uppercase animate-pulse" id="loading-text">Establishing Secure Connection...</p>
+    </div>
+
+    <!-- General Message Modal -->
     <div id="modal-overlay" class="fixed inset-0 bg-slate-950/80 z-[200] hidden items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in duration-200">
             <h3 id="modal-title" class="text-xl font-black text-white mb-4 italic">Confirmation</h3>
-            <p id="modal-body" class="text-slate-400 text-sm mb-8 leading-relaxed"></p>
+            <p id="modal-body" class="text-slate-400 text-sm mb-8 leading-relaxed whitespace-pre-wrap"></p>
             <div class="flex gap-3">
-                <button id="modal-cancel" class="flex-1 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl hover:bg-slate-700 transition-colors">Cancel</button>
-                <button id="modal-confirm" class="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-900/50">Proceed</button>
+                <button id="modal-cancel" class="flex-1 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl hover:bg-slate-700 transition-colors">Close</button>
+                <button id="modal-confirm" class="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-900/50 hidden">Proceed</button>
             </div>
         </div>
     </div>
 
-    <div class="main-content-wrapper p-4 md:p-8 flex flex-col justify-center">
-        <!-- ==================== VIEW: HOME ==================== -->
-        <div id="home-view" class="max-w-3xl w-full mx-auto animate-in fade-in zoom-in duration-500 my-auto">
-            <div class="text-center mb-16">
-                <h1 class="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 mb-4 italic tracking-tight">The Optime! Invaders</h1>
-                <p class="text-slate-400 text-lg">Type the definition to fire your lasers. Defend the base.</p>
-            </div>
-            <div class="grid md:grid-cols-2 gap-6">
-                <button onclick="showCreateView()" class="group bg-slate-900 p-8 rounded-3xl shadow-xl hover:shadow-cyan-900/20 transition-all border border-slate-800 text-left active:scale-95">
-                    <div class="w-14 h-14 bg-slate-800 text-cyan-400 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-cyan-500 group-hover:text-slate-900 transition-colors shadow-lg">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                    </div>
-                    <h2 class="text-2xl font-bold text-white mb-2">Create Target Data</h2>
-                    <p class="text-sm text-slate-500">Manually construct a new set of terms and definitions.</p>
-                </button>
+    <!-- Auth Modal (Google & Email Login / Username Setup) -->
+    <div id="auth-modal" class="fixed inset-0 bg-slate-950/95 z-[300] hidden items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in duration-300 text-center relative overflow-hidden my-auto">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-indigo-500"></div>
+            
+            <div id="auth-step-1">
+                <h3 class="text-3xl font-black text-white mb-2 italic" id="auth-title">Commander Access</h3>
+                <p class="text-slate-400 text-sm mb-6" id="auth-subtitle">Sign in to join the global rankings.</p>
                 
-                <button onclick="showImportView()" class="group bg-slate-900 p-8 rounded-3xl shadow-xl hover:shadow-emerald-900/20 transition-all border border-slate-800 text-left active:scale-95">
-                    <div class="w-14 h-14 bg-slate-800 text-emerald-400 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-emerald-500 group-hover:text-slate-900 transition-colors shadow-lg">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                <div id="auth-error" class="hidden bg-red-900/30 border border-red-800 text-red-400 text-xs p-3 rounded-lg mb-4 text-left font-mono whitespace-pre-wrap"></div>
+                <div id="auth-success" class="hidden bg-emerald-900/30 border border-emerald-800 text-emerald-400 text-xs p-3 rounded-lg mb-4 text-left font-mono whitespace-pre-wrap"></div>
+
+                <div class="flex flex-col gap-4">
+                    <button onclick="handleGoogleLogin()" class="w-full py-3.5 bg-white text-slate-900 font-black rounded-xl shadow-lg hover:shadow-white/20 transition-all hover:-translate-y-1 flex items-center justify-center gap-3">
+                        <svg viewBox="0 0 24 24" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                        <span>Sign in with Google</span>
+                    </button>
+
+                    <div class="flex items-center gap-4 my-2">
+                        <div class="h-px bg-slate-800 flex-1"></div>
+                        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">OR</span>
+                        <div class="h-px bg-slate-800 flex-1"></div>
                     </div>
-                    <h2 class="text-2xl font-bold text-white mb-2">Import Mission</h2>
-                    <p class="text-sm text-slate-500">Paste JSON data from a previous session to resume defense.</p>
-                </button>
+
+                    <form id="email-auth-form" onsubmit="handleEmailAuth(event)" class="flex flex-col gap-3 text-left">
+                        <div>
+                            <input type="email" id="auth-email" required class="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 focus:outline-none p-3.5 rounded-xl text-white font-bold" placeholder="Email Address">
+                        </div>
+                        <div>
+                            <input type="password" id="auth-password" required minlength="6" class="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 focus:outline-none p-3.5 rounded-xl text-white font-bold" placeholder="Password (Min 6 chars)">
+                        </div>
+                        <button type="submit" id="email-submit-btn" class="w-full mt-2 py-3.5 bg-gradient-to-r from-cyan-600 to-indigo-600 text-white font-black rounded-xl shadow-lg hover:shadow-cyan-500/30 transition-all hover:-translate-y-1">
+                            <span>Initialize Login</span>
+                        </button>
+                    </form>
+
+                    <div class="mt-4 pt-4 border-t border-slate-800">
+                        <button onclick="toggleAuthMode()" id="auth-toggle-btn" class="text-sm font-bold text-slate-400 hover:text-white transition-colors">Need an account? Enlist here.</button>
+                    </div>
+                </div>
             </div>
 
-            <!-- NEW SAMPLE SET SECTION -->
-            <div class="mt-12 pt-8 border-t border-slate-800 text-center animate-in fade-in duration-700 delay-200">
-                <h3 class="text-lg font-bold text-slate-300 mb-2">Need a training simulation?</h3>
-                <p class="text-sm text-slate-500 mb-6">Sample set is currently: Latin Irregular & 4th Conjugation Verbs</p>
-                <button onclick="loadSampleSet()" class="px-8 py-3.5 bg-slate-800 text-cyan-400 font-bold rounded-2xl hover:bg-slate-700 transition-colors border border-slate-700 shadow-lg active:scale-95 inline-flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <div id="auth-step-2" class="hidden">
+                <h3 class="text-3xl font-black text-cyan-400 mb-2 italic">Identify Yourself</h3>
+                <p class="text-slate-400 text-sm mb-6">Choose a unique Commander Name to be displayed on the leaderboards.</p>
+                <div id="username-error" class="hidden bg-red-900/30 border border-red-800 text-red-400 text-xs p-3 rounded-lg mb-4 text-left font-mono"></div>
+                <form id="username-form" onsubmit="handleUsernameSubmit(event)" class="flex flex-col gap-4 text-left">
+                    <div>
+                        <input type="text" id="auth-username" required minlength="3" maxlength="20" class="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 focus:outline-none p-4 rounded-xl text-white font-bold text-center" placeholder="e.g. LaserLord99">
+                    </div>
+                    <button type="submit" id="username-submit-btn" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-black rounded-xl shadow-lg hover:shadow-cyan-500/30 transition-all hover:-translate-y-1 flex items-center justify-center gap-2">
+                        <span>Complete Enlistment</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Navigation Profile -->
+    <div class="absolute top-4 right-4 z-[100] hidden" id="user-profile-badge">
+        <div class="bg-slate-900 border border-slate-800 pl-4 pr-1 py-1 rounded-full flex items-center gap-3 shadow-lg">
+            <div class="flex items-center gap-2">
+                <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span class="text-sm font-bold text-slate-300 font-mono truncate max-w-[120px]" id="display-username">Commander</span>
+            </div>
+            <button onclick="logout()" class="p-2 bg-slate-800 hover:bg-red-900/50 hover:text-red-400 text-slate-400 rounded-full transition-colors" title="Disconnect">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="main-content-wrapper flex flex-col pt-20 pb-12 px-4 md:px-8">
+        
+        <!-- ==================== VIEW: HOME ==================== -->
+        <div id="home-view" class="max-w-6xl w-full mx-auto animate-in fade-in zoom-in duration-500 hidden flex-col">
+            
+            <div class="flex flex-col md:flex-row justify-between items-center mb-12 gap-6 bg-slate-900/50 p-8 rounded-3xl border border-slate-800">
+                <div class="text-center md:text-left">
+                    <h1 class="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 mb-2 italic tracking-tight">The Optime! Invaders</h1>
+                    <p class="text-slate-400 text-lg">Defend the base. Accumulate points. Dominate the standings.</p>
+                </div>
+                <div class="shrink-0 flex gap-4">
+                    <button id="admin-dashboard-btn" onclick="showAdminView()" class="hidden px-6 py-4 bg-rose-900/20 text-rose-400 font-black rounded-2xl hover:bg-rose-900/40 transition-colors border border-rose-800/50 shadow-xl flex items-center gap-2 group">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                        Admin Panel
+                    </button>
+                    <button onclick="showLeaderboardView()" class="px-6 py-4 bg-slate-800 text-cyan-400 font-black rounded-2xl hover:bg-slate-700 transition-colors border border-slate-700 shadow-xl flex items-center gap-2 group">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                        Global Leaderboards
+                    </button>
+                </div>
+            </div>
+
+            <!-- Official Categories Section -->
+            <div class="mb-8">
+                <h2 class="text-2xl font-black text-white mb-6 uppercase tracking-widest border-b border-slate-800 pb-4">Official Operations</h2>
+                <p class="text-sm text-slate-400 mb-6">Complete these certified missions to earn points for your Global Profile.</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="categories-container">
+                    <!-- Categories injected via JS -->
+                </div>
+            </div>
+            
+            <div class="mt-8 pt-8 border-t border-slate-800 text-center animate-in fade-in duration-700 delay-200">
+                <button onclick="loadSampleSet()" class="px-8 py-3.5 bg-slate-800 text-slate-300 font-bold rounded-2xl hover:bg-slate-700 hover:text-white transition-colors border border-slate-700 shadow-lg active:scale-95 inline-flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-cyan-500" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
                     </svg>
-                    Launch Sample Simulation
+                    Launch Offline Sample Simulation
                 </button>
             </div>
+
         </div>
 
-        <!-- ==================== VIEW: IMPORT ==================== -->
-        <div id="import-view" class="hidden max-w-2xl w-full mx-auto animate-in fade-in zoom-in duration-300 my-auto">
-            <div class="bg-slate-900 p-8 rounded-3xl shadow-2xl border border-slate-800">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-3xl font-black text-white italic">Import Mission Data</h2>
-                    <button onclick="showHomeView()" class="text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors">Abort</button>
+        <!-- ==================== VIEW: LEADERBOARD ==================== -->
+        <div id="leaderboard-view" class="hidden max-w-4xl w-full mx-auto animate-in fade-in zoom-in duration-300 my-auto flex-col h-[85vh]">
+            <div class="flex justify-between items-center mb-6 shrink-0 bg-slate-900 p-6 rounded-3xl border border-slate-800">
+                <div>
+                    <h2 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400 italic tracking-tight">Global Standings</h2>
+                    <p class="text-slate-400 text-sm mt-1">The most decorated commanders in the galaxy based on Total Score.</p>
                 </div>
-                <p class="text-sm text-slate-400 mb-4">Paste the JSON configuration string below.</p>
-                <textarea id="import-textarea" class="w-full h-48 p-4 rounded-xl border border-slate-700 bg-slate-950 focus:bg-slate-900 focus:border-cyan-500 focus:outline-none text-sm font-mono text-cyan-300 resize-none mb-6 shadow-inner" placeholder='{"title": "Mission 1", "words": [...] }'></textarea>
-                
-                <div class="flex items-center gap-4 mb-6">
-                    <div class="h-px bg-slate-800 flex-1"></div>
-                    <span class="text-xs font-bold text-slate-600 uppercase tracking-widest">OR</span>
-                    <div class="h-px bg-slate-800 flex-1"></div>
+                <button onclick="showHomeView()" class="px-5 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl hover:bg-slate-700 hover:text-white transition-colors text-sm border border-slate-700 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                    Headquarters
+                </button>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-2 md:p-6 flex-1 flex flex-col shadow-2xl relative overflow-hidden">
+                <div class="grid grid-cols-12 gap-4 px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800 shrink-0">
+                    <div class="col-span-2 md:col-span-1 text-center">Rank</div>
+                    <div class="col-span-6 md:col-span-5">Commander</div>
+                    <div class="col-span-4 md:col-span-3 text-right">Total Score</div>
+                    <div class="col-span-12 md:col-span-3 text-right hidden md:block">Missions</div>
                 </div>
 
-                <div class="flex flex-col md:flex-row gap-4">
-                    <label class="cursor-pointer flex-1 bg-slate-800 text-cyan-400 font-bold py-4 rounded-2xl hover:bg-slate-700 transition-all text-center border-2 border-dashed border-slate-600 hover:border-cyan-500 flex items-center justify-center">
-                        <span>Upload .json File</span>
-                        <input type="file" class="hidden" accept=".json" onchange="handleFileUpload(event)">
-                    </label>
-                    <button onclick="processImport()" class="flex-1 bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-black py-4 rounded-2xl shadow-lg hover:shadow-cyan-500/30 transition-all hover:-translate-y-1">Initialize Sequence</button>
+                <div id="leaderboard-loading" class="flex-1 flex items-center justify-center hidden">
+                    <div class="loader w-10 h-10"></div>
+                </div>
+
+                <div id="leaderboard-grid" class="flex-1 overflow-y-auto editor-scroll space-y-2 p-2">
+                    <!-- Global Leaderboard items injected here -->
                 </div>
             </div>
         </div>
 
-        <!-- ==================== VIEW: CREATE/EDIT ==================== -->
-        <div id="create-view" class="hidden max-w-5xl w-full mx-auto animate-in fade-in zoom-in duration-300 my-auto">
-            <div class="bg-slate-900 p-6 md:p-8 rounded-3xl shadow-2xl border border-slate-800 flex flex-col h-[85vh]">
-                
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 shrink-0 border-b border-slate-800 pb-6">
-                    <div class="flex-1 min-w-0">
-                        <input type="text" id="set-title-input" maxlength="60" class="w-full text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 italic border-b-2 border-transparent hover:border-slate-700 focus:border-cyan-500 focus:outline-none transition-colors px-2 py-1 bg-transparent truncate" placeholder="Operation Title...">
+        <!-- ==================== VIEW: ADMIN DASHBOARD ==================== -->
+        <div id="admin-view" class="hidden max-w-6xl w-full mx-auto animate-in fade-in zoom-in duration-300 my-auto flex-col h-[85vh]">
+            <div class="flex justify-between items-center mb-6 shrink-0 bg-rose-950/30 p-6 rounded-3xl border border-rose-900/50">
+                <div>
+                    <h2 class="text-4xl font-black text-rose-400 italic tracking-tight">Admin Override Terminal</h2>
+                    <p class="text-rose-500/70 text-sm mt-1">Manage global operations and enforce network integrity.</p>
+                </div>
+                <button onclick="showHomeView()" class="px-5 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl hover:bg-slate-700 hover:text-white transition-colors text-sm border border-slate-700 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                    Headquarters
+                </button>
+            </div>
+
+            <div id="admin-loading" class="flex-1 flex items-center justify-center hidden">
+                <div class="loader w-10 h-10 border-rose-500 border-t-rose-200"></div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 overflow-hidden">
+                <!-- Community Ops -->
+                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
+                    <h3 class="text-lg font-bold text-white mb-4 uppercase tracking-widest border-b border-slate-800 pb-2">Community Operations</h3>
+                    <div id="admin-sets-grid" class="flex-1 overflow-y-auto editor-scroll grid grid-cols-1 gap-4 pb-4 pr-2">
+                        <!-- Sets injected here -->
                     </div>
-                    <div class="flex gap-3 shrink-0 items-center flex-wrap">
-                        <button onclick="copyCurrentSet()" class="px-4 py-2.5 bg-slate-800 text-cyan-400 font-bold rounded-xl hover:bg-slate-700 transition-colors text-sm flex items-center gap-2 border border-slate-700">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg> Copy JSON
-                        </button>
-                        <button onclick="downloadCurrentSet()" class="px-4 py-2.5 bg-slate-800 text-cyan-400 font-bold rounded-xl hover:bg-slate-700 transition-colors text-sm flex items-center gap-2 border border-slate-700">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> Export
-                        </button>
-                        <button id="cancel-edit-btn" onclick="cancelEdit()" class="text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors px-3">Abort</button>
-                        <button onclick="saveAndStart()" class="px-6 py-2.5 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg shadow-emerald-900/50 hover:bg-emerald-400 transition-colors text-sm">Lock & Launch</button>
+                </div>
+
+                <!-- Global Players -->
+                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
+                    <h3 class="text-lg font-bold text-white mb-4 uppercase tracking-widest border-b border-slate-800 pb-2 flex justify-between items-center">
+                        <span>Leaderboard Enforcements</span>
+                        <span class="text-xs text-rose-500 normal-case tracking-normal font-normal">*Deletions are permanent</span>
+                    </h3>
+                    <div id="admin-players-grid" class="flex-1 overflow-y-auto editor-scroll grid grid-cols-1 gap-4 pb-4 pr-2">
+                        <!-- Players injected here -->
                     </div>
-                </div>
-
-                <!-- Header Row -->
-                <div class="grid grid-cols-12 gap-4 px-4 pb-2 text-xs font-bold text-slate-500 uppercase tracking-widest shrink-0">
-                    <div class="col-span-12 md:col-span-3">Term</div>
-                    <div class="col-span-12 md:col-span-8">Definitions</div>
-                    <div class="col-span-12 md:col-span-1 text-center hidden md:block">Del</div>
-                </div>
-
-                <!-- Dynamic Rows -->
-                <div id="editor-rows" class="flex-1 overflow-y-auto editor-scroll p-2 space-y-3">
-                    <!-- Rows injected via JS -->
-                </div>
-
-                <div class="pt-6 mt-4 border-t border-slate-800 shrink-0">
-                    <button onclick="addEditorRow()" class="w-full py-4 border-2 border-dashed border-slate-700 text-slate-400 font-bold rounded-2xl hover:border-cyan-500 hover:text-cyan-400 hover:bg-cyan-950/30 transition-all flex items-center justify-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-                        Add Target Profile
-                    </button>
                 </div>
             </div>
         </div>
@@ -176,7 +275,10 @@
             <!-- Game HUD -->
             <div class="flex justify-between items-end mb-4 px-2 shrink-0">
                 <div>
-                    <h2 id="game-set-title" class="text-2xl font-black text-white italic tracking-tight truncate max-w-xs md:max-w-md">Set Title</h2>
+                    <div class="flex items-center gap-3">
+                        <h2 id="game-set-title" class="text-2xl font-black text-white italic tracking-tight truncate max-w-xs md:max-w-md">Set Title</h2>
+                        <span id="game-network-status" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-cyan-900/50 text-cyan-400 border border-cyan-700">Official Server</span>
+                    </div>
                     <div class="text-sm font-mono text-cyan-400 mt-1" id="score-display">SCORE: 000000</div>
                 </div>
                 <div class="text-right">
@@ -197,17 +299,26 @@
             <div class="flex-1 relative w-full rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden mb-4 min-h-[400px]" id="canvas-container">
                 <canvas id="gameCanvas" class="block w-full h-full"></canvas>
                 
-                <!-- Game Over Overlay inside Canvas Container -->
-                <div id="game-over-overlay" class="absolute inset-0 bg-slate-950/90 z-50 hidden flex-col items-center justify-center p-6 text-center animate-in zoom-in duration-300">
-                    <h2 class="text-5xl font-black text-red-500 italic mb-2 tracking-widest uppercase">Mission Failed</h2>
-                    <p class="text-slate-300 text-lg mb-8">Base destroyed.</p>
-                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8 shadow-2xl w-full max-w-sm">
+                <!-- Game Over Overlay -->
+                <div id="game-over-overlay" class="absolute inset-0 bg-slate-950/95 z-50 hidden flex-col items-center justify-center p-6 text-center animate-in zoom-in duration-300 overflow-y-auto py-12">
+                    <h2 class="text-5xl font-black text-red-500 italic mb-2 tracking-widest uppercase mt-auto">Mission Failed</h2>
+                    <p class="text-slate-300 text-lg mb-6">Base destroyed.</p>
+                    
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-6 shadow-2xl w-full max-w-sm">
                         <div class="text-sm text-slate-500 uppercase font-bold tracking-widest mb-1">Final Score</div>
-                        <div class="text-4xl font-mono text-cyan-400 font-black" id="final-score">0</div>
+                        <div class="text-5xl font-mono text-cyan-400 font-black" id="final-score">0</div>
                     </div>
-                    <div class="flex gap-4">
-                        <button onclick="showHomeView()" class="px-6 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl hover:bg-slate-700 transition-colors">Headquarters</button>
-                        <button onclick="startGame()" class="px-8 py-3 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg shadow-emerald-900/50 hover:bg-emerald-400 transition-colors">Re-deploy</button>
+
+                    <div id="game-over-sync-container" class="w-full max-w-sm mb-8">
+                        <div class="flex items-center justify-center gap-3 p-4 bg-slate-800/50 border border-slate-700 rounded-xl">
+                            <div class="loader w-5 h-5 border-2" id="sync-loader"></div>
+                            <span id="sync-text" class="text-slate-300 font-mono text-sm">Syncing Score to Network...</span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4 w-full max-w-sm mt-auto">
+                        <button onclick="showHomeView()" class="flex-1 py-4 bg-slate-800 text-slate-300 font-bold rounded-xl hover:bg-slate-700 transition-colors">Headquarters</button>
+                        <button onclick="startGame()" class="flex-1 py-4 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg shadow-emerald-900/50 hover:bg-emerald-400 transition-colors">Re-deploy</button>
                     </div>
                 </div>
 
@@ -257,204 +368,525 @@
         © Isaac Bazlov 2026
     </footer>
 
-    <script>
-        // --- Data Structure ---
-        // --- PASTE HERE ---
-        const sampleSetData = {
-  "title": "Latin Irregular & 4th Conjugation Verbs",
-  "words": [
-    {
-      "term": "sum",
-      "meanings": [
-        "be"
-      ]
-    },
-    {
-      "term": "dormio",
-      "meanings": [
-        "sleep"
-      ]
-    },
-    {
-      "term": "inquit",
-      "meanings": [
-        "say",
-        "said"
-      ]
-    },
-    {
-      "term": "adsum",
-      "meanings": [
-        "be here",
-        "be present",
-        "present"
-      ]
-    },
-    {
-      "term": "audio",
-      "meanings": [
-        "hear",
-        "listen to",
-        "listen"
-      ]
-    },
-    {
-      "term": "venio",
-      "meanings": [
-        "come"
-      ]
-    },
-    {
-      "term": "absum",
-      "meanings": [
-        "be out",
-        "be absent",
-        "be away",
-        "absent",
-        "away"
-      ]
-    },
-    {
-      "term": "fero",
-      "meanings": [
-        "bring",
-        "carry",
-        "bear"
-      ]
-    },
-    {
-      "term": "offero",
-      "meanings": [
-        "offer"
-      ]
-    },
-    {
-      "term": "invenio",
-      "meanings": [
-        "find"
-      ]
-    },
-    {
-      "term": "eo",
-      "meanings": [
-        "go"
-      ]
-    },
-    {
-      "term": "sentio",
-      "meanings": [
-        "feel",
-        "notice"
-      ]
-    },
-    {
-      "term": "advenio",
-      "meanings": [
-        "arrive"
-      ]
-    },
-    {
-      "term": "nolo",
-      "meanings": [
-        "not want",
-        "don't want"
-      ]
-    },
-    {
-      "term": "possum",
-      "meanings": [
-        "can",
-        "be able",
-        "able"
-      ]
-    },
-    {
-      "term": "volo",
-      "meanings": [
-        "want",
-        "wish"
-      ]
-    },
-    {
-      "term": "redeo",
-      "meanings": [
-        "go back",
-        "come back",
-        "return"
-      ]
-    },
-    {
-      "term": "pereo",
-      "meanings": [
-        "die",
-        "perish"
-      ]
-    },
-    {
-      "term": "tollo",
-      "meanings": [
-        "raise",
-        "lift up",
-        "lift"
-      ]
-    },
-    {
-      "term": "coepi",
-      "meanings": [
-        "began"
-      ]
-    },
-    {
-      "term": "scio",
-      "meanings": [
-        "know"
-      ]
-    },
-    {
-      "term": "aperio",
-      "meanings": [
-        "open"
-      ]
-    },
-    {
-      "term": "nescio",
-      "meanings": [
-        "not know",
-        "don't know"
-      ]
-    },
-    {
-      "term": "aufero",
-      "meanings": [
-        "take away",
-        "carry off",
-        "steal"
-      ]
-    },
-    {
-      "term": "refero",
-      "meanings": [
-        "bring back",
-        "carry back",
-        "report",
-        "tell"
-      ]
-    }
-  ]
-};
+    <!-- OFFICIAL MISSION DATA: Paste Here-->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, getDoc, updateDoc, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        let currentSet = { title: "Basic Training", words: [] };
+        // ==========================================
+        // DATA & CONFIG
+        // ==========================================
+        const officialCategories = {
+            latin: {
+                name: "Latin",
+                color: "emerald",
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>`,
+                sets: [
+                    {
+                        title: "Irregular Verbs",
+                        words: [
+                            {"term": "sum", "meanings": ["be"]},
+                            {"term": "possum", "meanings": ["can", "be able", "able"]},
+                            {"term": "volo", "meanings": ["want", "wish"]},
+                            {"term": "nolo", "meanings": ["not want", "do not want", "don't want"]},
+                            {"term": "eo", "meanings": ["go"]},
+                            {"term": "fero", "meanings": ["bring", "carry", "bear"]}
+                        ]
+                    },
+                    {
+                        title: "1st Declension Nouns",
+                        words: [
+                            {"term": "puella", "meanings": ["girl"]},
+                            {"term": "femina", "meanings": ["woman"]},
+                            {"term": "aqua", "meanings": ["water"]},
+                            {"term": "insula", "meanings": ["island"]},
+                            {"term": "silva", "meanings": ["woods", "forest"]}
+                        ]
+                    }
+                ]
+            },
+            french: {
+                name: "French",
+                color: "blue",
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+                sets: [
+                    {
+                        title: "Basic Greetings",
+                        words: [
+                            {"term": "bonjour", "meanings": ["hello", "good morning"]},
+                            {"term": "au revoir", "meanings": ["goodbye", "bye"]},
+                            {"term": "merci", "meanings": ["thank you", "thanks"]},
+                            {"term": "s'il vous plaît", "meanings": ["please"]},
+                            {"term": "oui", "meanings": ["yes"]},
+                            {"term": "non", "meanings": ["no"]}
+                        ]
+                    },
+                    {
+                        title: "Numbers 1-10",
+                        words: [
+                            {"term": "un", "meanings": ["one", "1"]},
+                            {"term": "deux", "meanings": ["two", "2"]},
+                            {"term": "trois", "meanings": ["three", "3"]},
+                            {"term": "quatre", "meanings": ["four", "4"]},
+                            {"term": "cinq", "meanings": ["five", "5"]}
+                        ]
+                    }
+                ]
+            },
+            spanish: {
+                name: "Spanish",
+                color: "amber",
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" /></svg>`,
+                sets: [
+                    {
+                        title: "Common Verbs",
+                        words: [
+                            {"term": "ser", "meanings": ["be", "to be"]},
+                            {"term": "estar", "meanings": ["be", "to be"]},
+                            {"term": "tener", "meanings": ["have", "to have"]},
+                            {"term": "hacer", "meanings": ["do", "make", "to do", "to make"]},
+                            {"term": "decir", "meanings": ["say", "tell", "to say", "to tell"]}
+                        ]
+                    },
+                    {
+                        title: "Colors",
+                        words: [
+                            {"term": "rojo", "meanings": ["red"]},
+                            {"term": "azul", "meanings": ["blue"]},
+                            {"term": "verde", "meanings": ["green"]},
+                            {"term": "amarillo", "meanings": ["yellow"]},
+                            {"term": "negro", "meanings": ["black"]}
+                        ]
+                    }
+                ]
+            },
+            german: {
+                name: "German",
+                color: "rose",
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>`,
+                sets: [
+                    {
+                        title: "Days of the Week",
+                        words: [
+                            {"term": "Montag", "meanings": ["Monday"]},
+                            {"term": "Dienstag", "meanings": ["Tuesday"]},
+                            {"term": "Mittwoch", "meanings": ["Wednesday"]},
+                            {"term": "Donnerstag", "meanings": ["Thursday"]},
+                            {"term": "Freitag", "meanings": ["Friday"]}
+                        ]
+                    },
+                    {
+                        title: "Family Members",
+                        words: [
+                            {"term": "Mutter", "meanings": ["mother", "mom"]},
+                            {"term": "Vater", "meanings": ["father", "dad"]},
+                            {"term": "Bruder", "meanings": ["brother"]},
+                            {"term": "Schwester", "meanings": ["sister"]},
+                            {"term": "Oma", "meanings": ["grandma", "grandmother"]}
+                        ]
+                    }
+                ]
+            }
+        };
+
+        const sampleSetData = {
+          "id": "sample_set",
+          "title": "Basic Training Simulation",
+          "words": [
+            {"term": "sum", "meanings": ["be"]},
+            {"term": "dormio", "meanings": ["sleep"]},
+            {"term": "audio", "meanings": ["hear", "listen"]},
+            {"term": "venio", "meanings": ["come"]}
+          ]
+        };
+
+        // --- Firebase Configuration & Auth Setup ---
+        let db, auth, currentUser, currentUsername = "";
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'optime-invaders';
+        let isFirebaseActive = false;
         
-        // --- Game Config Variables ---
+        // --- ADMIN CONFIGURATION ---
+        const ADMIN_EMAILS = ["isaac.bazlov@gmail.com"];
+        let isAdmin = false;
+
+        async function initFirebase() {
+            try {
+                let configToUse;
+                if (typeof __firebase_config !== 'undefined' && __firebase_config && __firebase_config !== '{}') {
+                    configToUse = JSON.parse(__firebase_config);
+                } else {
+                    configToUse = {
+                        apiKey: "AIzaSyAroQ5vztHwAP5Z1SaQlqX726JwV94U8V0",
+                        authDomain: "optimeimposter.firebaseapp.com",
+                        projectId: "optimeimposter",
+                        storageBucket: "optimeimposter.firebasestorage.app",
+                        messagingSenderId: "174084553877",
+                        appId: "1:174084553877:web:a701d6903d08d14426af9c",
+                        measurementId: "G-5MGHNZ9DCK"
+                    };
+                }
+
+                const app = initializeApp(configToUse);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                renderCategories(); // Safely render UI early
+
+                // Listen for authenticated user
+                onAuthStateChanged(auth, async (user) => {
+                    document.getElementById('initial-loading').style.display = 'none';
+                    if (user) {
+                        // For email/password login, check verification FIRST
+                        if (user.providerData[0].providerId === 'password' && !user.emailVerified) {
+                            auth.signOut();
+                            showAuthError("Please verify your email address to play. Check your inbox.");
+                            return;
+                        }
+
+                        currentUser = user;
+                        isFirebaseActive = true;
+                        
+                        isAdmin = user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+                        if (isAdmin) {
+                            document.getElementById('admin-dashboard-btn').classList.remove('hidden');
+                        } else {
+                            document.getElementById('admin-dashboard-btn').classList.add('hidden');
+                        }
+
+                        await fetchUserProfile();
+                    } else {
+                        // User is signed out.
+                        currentUser = null;
+                        currentUsername = "";
+                        isFirebaseActive = false;
+                        isAdmin = false;
+                        document.getElementById('admin-dashboard-btn').classList.add('hidden');
+                        document.getElementById('user-profile-badge').classList.add('hidden');
+                        
+                        document.getElementById('auth-step-1').classList.remove('hidden');
+                        document.getElementById('auth-step-2').classList.add('hidden');
+
+                        document.getElementById('auth-modal').classList.remove('hidden');
+                        document.getElementById('auth-modal').classList.add('flex');
+                    }
+                });
+
+            } catch (e) {
+                console.error("Firebase init failed:", e);
+                document.getElementById('loading-text').innerText = "Network Error. Refresh to retry.";
+                document.querySelector('.loader').style.borderColor = "#ef4444";
+                document.querySelector('.loader').style.borderTopColor = "#991b1b";
+            }
+        }
+
+        async function fetchUserProfile() {
+            try {
+                // We store profiles in public/data/playerStats
+                const profileRef = doc(db, 'artifacts', appId, 'public', 'data', 'playerStats', currentUser.uid);
+                const profileSnap = await getDoc(profileRef);
+                
+                if (profileSnap.exists()) {
+                    currentUsername = profileSnap.data().username;
+                    updateProfileBadge();
+                    document.getElementById('auth-modal').classList.add('hidden');
+                    document.getElementById('auth-modal').classList.remove('flex');
+                    showHomeView();
+                } else {
+                    // New user! Show step 2 for Commander Name setup
+                    document.getElementById('auth-modal').classList.remove('hidden');
+                    document.getElementById('auth-modal').classList.add('flex');
+                    document.getElementById('auth-step-1').classList.add('hidden');
+                    document.getElementById('auth-step-2').classList.remove('hidden');
+
+                    // Pre-fill username from Google displayName if available
+                    if (currentUser.displayName) {
+                        document.getElementById('auth-username').value = currentUser.displayName.replace(/[^a-zA-Z0-9_]/g, '').substring(0, 20);
+                    }
+                }
+            } catch (error) {
+                console.error("Profile fetch error:", error);
+                auth.signOut(); 
+            }
+        }
+
+        // --- AUTH UI LOGIC ---
+        let isSignupMode = false;
+        
+        window.toggleAuthMode = function() {
+            isSignupMode = !isSignupMode;
+            const errBox = document.getElementById('auth-error');
+            const succBox = document.getElementById('auth-success');
+            errBox.classList.add('hidden');
+            succBox.classList.add('hidden');
+            
+            if(isSignupMode) {
+                document.getElementById('auth-title').innerText = "Enlist Now";
+                document.getElementById('auth-subtitle').innerText = "Create an account using email to join the global rankings.";
+                document.getElementById('email-submit-btn').innerHTML = "<span>Create Account</span>";
+                document.getElementById('auth-toggle-btn').innerText = "Already enlisted? Access terminal.";
+            } else {
+                document.getElementById('auth-title').innerText = "Commander Access";
+                document.getElementById('auth-subtitle').innerText = "Sign in to join the global rankings.";
+                document.getElementById('email-submit-btn').innerHTML = "<span>Initialize Login</span>";
+                document.getElementById('auth-toggle-btn').innerText = "Need an account? Enlist here.";
+            }
+        };
+
+        function showAuthError(msg) {
+            const errBox = document.getElementById('auth-error');
+            errBox.innerText = msg;
+            errBox.classList.remove('hidden');
+            document.getElementById('auth-success').classList.add('hidden');
+        }
+
+        window.handleGoogleLogin = async function() {
+            const provider = new GoogleAuthProvider();
+            document.getElementById('auth-error').classList.add('hidden');
+            try {
+                await signInWithPopup(auth, provider);
+            } catch(error) {
+                console.error("Google Auth Error:", error);
+                showAuthError("Login failed: " + error.message.replace("Firebase: ", ""));
+            }
+        };
+
+        window.handleEmailAuth = async function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('email-submit-btn');
+            const originalText = btn.innerHTML;
+            
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value;
+            
+            btn.innerHTML = `<div class="loader w-5 h-5 border-2 mx-auto"></div>`;
+            btn.disabled = true;
+            document.getElementById('auth-error').classList.add('hidden');
+            document.getElementById('auth-success').classList.add('hidden');
+
+            try {
+                if (isSignupMode) {
+                    const cred = await createUserWithEmailAndPassword(auth, email, password);
+                    await sendEmailVerification(cred.user);
+                    
+                    const succBox = document.getElementById('auth-success');
+                    succBox.innerText = "Account created! A verification link has been sent to your email. Please verify before logging in.";
+                    succBox.classList.remove('hidden');
+                    
+                    await auth.signOut();
+                    
+                    // Switch back to login mode
+                    isSignupMode = false;
+                    toggleAuthMode();
+                    toggleAuthMode(); // Refresh UI text
+                } else {
+                    // Login happens. onAuthStateChanged listener handles the rest
+                    await signInWithEmailAndPassword(auth, email, password);
+                }
+            } catch (error) {
+                showAuthError(error.message.replace("Firebase: ", ""));
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        };
+
+        window.handleUsernameSubmit = async function(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('username-submit-btn');
+            const errBox = document.getElementById('username-error');
+            const originalText = btn.innerHTML;
+            
+            const requestedUsername = document.getElementById('auth-username').value.trim();
+            if(requestedUsername.length < 3) return;
+            
+            btn.innerHTML = `<div class="loader w-5 h-5 border-2 mx-auto"></div>`;
+            btn.disabled = true;
+            errBox.classList.add('hidden');
+
+            try {
+                // Rule 1 & 2 Check: Fetch all public profiles to verify username uniqueness
+                const statsRef = collection(db, 'artifacts', appId, 'public', 'data', 'playerStats');
+                const querySnapshot = await getDocs(statsRef);
+                
+                let isTaken = false;
+                querySnapshot.forEach(docSnap => {
+                    if (docSnap.data().username && docSnap.data().username.toLowerCase() === requestedUsername.toLowerCase()) {
+                        isTaken = true;
+                    }
+                });
+
+                if (isTaken) {
+                    errBox.innerText = "Commander Name is already taken. Please choose another.";
+                    errBox.classList.remove('hidden');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                // Fetch IP Address silently
+                let userIP = "Unknown";
+                try {
+                    const ipResponse = await fetch('https://api.ipify.org?format=json');
+                    const ipData = await ipResponse.json();
+                    userIP = ipData.ip;
+                } catch (err) { console.warn("Could not fetch IP", err); }
+
+                // Initialize Public Leaderboard Profile
+                const profileRef = doc(db, 'artifacts', appId, 'public', 'data', 'playerStats', currentUser.uid);
+                await setDoc(profileRef, { 
+                    username: requestedUsername,
+                    totalScore: 0,
+                    missionsCompleted: 0,
+                    registeredAt: Date.now(),
+                    lastKnownIP: userIP
+                });
+
+                currentUsername = requestedUsername;
+                updateProfileBadge();
+                document.getElementById('auth-modal').classList.add('hidden');
+                document.getElementById('auth-modal').classList.remove('flex');
+                showHomeView();
+                
+            } catch (error) {
+                console.error("Failed to save username:", error);
+                errBox.innerText = "Network Error. Please try again.";
+                errBox.classList.remove('hidden');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        };
+
+        window.logout = function() {
+            if(auth) signOut(auth);
+        };
+
+        function updateProfileBadge() {
+            if(currentUsername) {
+                document.getElementById('user-profile-badge').classList.remove('hidden');
+                document.getElementById('display-username').innerText = currentUsername;
+            }
+        }
+
+        // --- GLOBAL LEADERBOARDS LOGIC ---
+
+        window.showLeaderboardView = async function() {
+            hideAllViews();
+            views.leaderboard.classList.remove('hidden');
+            views.leaderboard.classList.add('flex');
+            
+            if(!isFirebaseActive) {
+                document.getElementById('leaderboard-grid').innerHTML = `
+                    <div class="text-center py-12">
+                        <p class="text-slate-500 font-mono">Global Network Offline. Reconnect to access standings.</p>
+                    </div>`;
+                return;
+            }
+
+            document.getElementById('leaderboard-loading').classList.remove('hidden');
+            document.getElementById('leaderboard-grid').innerHTML = '';
+
+            try {
+                // Rule 1 & 2: Simple query to strict public path, fetch all profiles
+                const statsRef = collection(db, 'artifacts', appId, 'public', 'data', 'playerStats');
+                const querySnapshot = await getDocs(statsRef);
+                
+                const players = [];
+                querySnapshot.forEach((doc) => {
+                    players.push({ uid: doc.id, ...doc.data() });
+                });
+
+                // Rule 2: Sort in-memory by totalScore
+                players.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+
+                document.getElementById('leaderboard-loading').classList.add('hidden');
+
+                if (players.length === 0) {
+                    document.getElementById('leaderboard-grid').innerHTML = `
+                        <div class="text-center py-12">
+                            <p class="text-slate-500 font-mono">No commanders registered yet.</p>
+                        </div>`;
+                    return;
+                }
+
+                // Render top 50
+                const topPlayers = players.slice(0, 50);
+                
+                topPlayers.forEach((p, index) => {
+                    const isCurrentUser = p.uid === currentUser?.uid;
+                    const row = document.createElement('div');
+                    row.className = `grid grid-cols-12 gap-4 items-center p-3 rounded-xl border ${isCurrentUser ? 'bg-cyan-950/30 border-cyan-800' : 'bg-slate-900 border-slate-800'} transition-colors hover:bg-slate-800`;
+                    
+                    let rankBadge = `<span class="text-slate-500 font-black">#${index+1}</span>`;
+                    if (index === 0) rankBadge = `<span class="text-amber-400 font-black text-lg drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]">#1</span>`;
+                    if (index === 1) rankBadge = `<span class="text-slate-300 font-black drop-shadow-[0_0_5px_rgba(203,213,225,0.5)]">#2</span>`;
+                    if (index === 2) rankBadge = `<span class="text-amber-700 font-black drop-shadow-[0_0_5px_rgba(180,83,9,0.5)]">#3</span>`;
+
+                    row.innerHTML = `
+                        <div class="col-span-2 md:col-span-1 text-center">${rankBadge}</div>
+                        <div class="col-span-6 md:col-span-5 font-bold ${isCurrentUser ? 'text-cyan-400' : 'text-slate-200'} truncate">${p.username}</div>
+                        <div class="col-span-4 md:col-span-3 text-right font-mono text-emerald-400 font-black">${(p.totalScore || 0).toLocaleString()}</div>
+                        <div class="col-span-12 md:col-span-3 text-right hidden md:block text-slate-500 font-mono text-xs uppercase tracking-widest">${p.missionsCompleted || 0} ops</div>
+                    `;
+                    document.getElementById('leaderboard-grid').appendChild(row);
+                });
+
+            } catch (error) {
+                console.error("Error fetching leaderboards:", error);
+                document.getElementById('leaderboard-loading').classList.add('hidden');
+                document.getElementById('leaderboard-grid').innerHTML = `
+                    <div class="text-center py-12 text-red-400">Failed to sync standings.</div>`;
+            }
+        };
+
+        // --- EXPOSE TO WINDOW FOR INLINE HTML CALLS ---
+        window.syncScoreToGlobalProfile = async function(scoreScored) {
+            if(!isFirebaseActive || !currentUser || scoreScored <= 0) return;
+            
+            const syncUI = document.getElementById('game-over-sync-container');
+            const syncLoader = document.getElementById('sync-loader');
+            const syncText = document.getElementById('sync-text');
+            
+            syncUI.classList.remove('hidden');
+            syncLoader.classList.remove('hidden');
+            syncText.innerText = "Syncing Score to Network...";
+            syncText.classList.replace("text-emerald-400", "text-slate-300");
+            syncText.classList.replace("text-red-400", "text-slate-300");
+
+            try {
+                const profileRef = doc(db, 'artifacts', appId, 'public', 'data', 'playerStats', currentUser.uid);
+                await updateDoc(profileRef, {
+                    totalScore: increment(scoreScored),
+                    missionsCompleted: increment(1),
+                    lastActive: Date.now()
+                });
+                
+                syncLoader.classList.add('hidden');
+                syncText.innerText = `+${scoreScored} Points Synced Successfully!`;
+                syncText.classList.replace("text-slate-300", "text-emerald-400");
+            } catch (error) {
+                console.error("Failed to sync score:", error);
+                syncLoader.classList.add('hidden');
+                syncText.innerText = `Sync Failed. Network Error.`;
+                syncText.classList.replace("text-slate-300", "text-red-400");
+            }
+        }
+
+        // ==========================================
+        // GAME ENGINE & UI STATE
+        // ==========================================
+        let currentSet = { title: "", words: [] };
+        let currentSetId = null;
+        let isGlobalSet = false;
         let configSpeed = 'normal'; // 'slow', 'normal', 'fast'
         let configLives = 3;        // 1, 3, 5
 
-        // --- UI View Management ---
         const views = {
             home: document.getElementById('home-view'),
-            create: document.getElementById('create-view'),
-            import: document.getElementById('import-view'),
-            game: document.getElementById('game-view')
+            leaderboard: document.getElementById('leaderboard-view'),
+            game: document.getElementById('game-view'),
+            admin: document.getElementById('admin-view')
         };
 
         const uiElements = {
@@ -466,251 +898,151 @@
         };
 
         function hideAllViews() {
-            Object.values(views).forEach(v => v.classList.add('hidden'));
+            Object.values(views).forEach(v => {
+                v.classList.add('hidden');
+                v.classList.remove('flex');
+            });
             if(gameLoopId) cancelAnimationFrame(gameLoopId);
         }
 
-        function showHomeView() {
+        function renderCategories() {
+            const container = document.getElementById('categories-container');
+            container.innerHTML = '';
+            
+            for (const [key, data] of Object.entries(officialCategories)) {
+                let colorClasses = "from-slate-800 to-slate-900 border-slate-700 text-white hover:border-slate-500";
+                if(data.color === 'emerald') colorClasses = "from-emerald-950 to-slate-900 border-emerald-900 text-emerald-400 hover:border-emerald-500";
+                if(data.color === 'blue') colorClasses = "from-blue-950 to-slate-900 border-blue-900 text-blue-400 hover:border-blue-500";
+                if(data.color === 'amber') colorClasses = "from-amber-950 to-slate-900 border-amber-900 text-amber-400 hover:border-amber-500";
+                if(data.color === 'rose') colorClasses = "from-rose-950 to-slate-900 border-rose-900 text-rose-400 hover:border-rose-500";
+
+                let setsHTML = '';
+                data.sets.forEach((set, index) => {
+                    setsHTML += `
+                        <button onclick="launchOfficialSet('${key}', ${index})" class="w-full text-left bg-slate-950/50 hover:bg-slate-800 p-3 rounded-xl border border-slate-800/50 transition-colors group">
+                            <div class="font-bold text-slate-200 group-hover:text-white mb-1 truncate">${set.title}</div>
+                            <div class="text-xs text-slate-500 uppercase tracking-widest font-bold">${set.words.length} Targets</div>
+                        </button>
+                    `;
+                });
+
+                container.innerHTML += `
+                    <div class="bg-gradient-to-b ${colorClasses} border rounded-3xl p-6 flex flex-col shadow-xl category-card">
+                        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
+                            ${data.icon}
+                            <h3 class="text-2xl font-black italic tracking-tight">${data.name}</h3>
+                        </div>
+                        <div class="space-y-3">
+                            ${setsHTML}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        window.launchOfficialSet = function(categoryKey, setIndex) {
+            const set = officialCategories[categoryKey].sets[setIndex];
+            currentSet = JSON.parse(JSON.stringify(set));
+            currentSetId = "official_" + categoryKey + "_" + setIndex;
+            isGlobalSet = true;
+            startGame();
+        };
+
+        window.loadSampleSet = function() {
+            currentSet = JSON.parse(JSON.stringify(sampleSetData));
+            currentSetId = sampleSetData.id;
+            isGlobalSet = false;
+            startGame();
+        };
+
+        window.showHomeView = function() {
             hideAllViews();
             views.home.classList.remove('hidden');
-        }
+            views.home.classList.add('flex');
+        };
 
-        function showImportView() {
-            hideAllViews();
-            document.getElementById('import-textarea').value = '';
-            views.import.classList.remove('hidden');
-        }
-
-        let isEditingSet = false;
-
-        function showCreateView() {
-            hideAllViews();
-            views.create.classList.remove('hidden');
-            document.getElementById('cancel-edit-btn').innerText = "Abort";
-            document.getElementById('set-title-input').value = "";
-            document.getElementById('editor-rows').innerHTML = "";
-            addEditorRow(); 
-        }
-
-        function showModal(title, body, onConfirm) {
+        window.showModal = function(title, body, onConfirm) {
             uiElements.modalTitle.innerText = title;
             uiElements.modalBody.innerText = body;
             uiElements.modalOverlay.classList.remove('hidden');
             uiElements.modalOverlay.classList.add('flex');
             
-            const handleConfirm = () => { onConfirm(); closeModal(); };
-            const handleCancel = () => { closeModal(); };
-            
-            uiElements.modalConfirm.onclick = handleConfirm;
-            uiElements.modalCancel.onclick = handleCancel;
-        }
+            if(onConfirm) {
+                uiElements.modalConfirm.classList.remove('hidden');
+                uiElements.modalConfirm.onclick = () => { onConfirm(); closeModal(); };
+            } else {
+                uiElements.modalConfirm.classList.add('hidden');
+            }
+            uiElements.modalCancel.onclick = () => { closeModal(); };
+        };
 
         function closeModal() {
             uiElements.modalOverlay.classList.add('hidden');
             uiElements.modalOverlay.classList.remove('flex');
         }
 
-        function loadSampleSet() {
-            currentSet = JSON.parse(JSON.stringify(sampleSetData));
-            startGame();
-        }
-
-        // --- Create / Edit Logic ---
-        function autoResize(element) {
-            element.style.height = 'auto';
-            element.style.height = element.scrollHeight + 'px';
-        }
-
-        function updateRowLayout(element) {
-            const container = element.closest('.def-container');
-            const defs = Array.from(container.querySelectorAll('textarea'));
-            let lastFilledIndex = -1;
-            defs.forEach((def, index) => {
-                if (!def.classList.contains('hidden')) autoResize(def);
-                if (def.value.trim() !== '') lastFilledIndex = index;
-            });
-
-            const visibleCount = Math.min(5, Math.max(2, lastFilledIndex + 2));
-
-            defs.forEach((def, index) => {
-                if (index < visibleCount) {
-                    def.classList.remove('hidden');
-                    autoResize(def);
-                    if (index === visibleCount - 1 && def.value.trim() === '') {
-                        def.style.flex = "1 1 0%";
-                    } else {
-                        def.style.flex = "3 1 0%";
-                    }
-                } else {
-                    def.classList.add('hidden');
-                    def.value = ""; 
-                }
-            });
-        }
-
-        function createRowHTML(term = '', m1='', m2='', m3='', m4='', m5='') {
-            return `
-                <div class="editor-row grid grid-cols-12 gap-3 items-start bg-slate-950 p-4 rounded-2xl border border-slate-800 relative group">
-                    <div class="col-span-12 md:col-span-3">
-                        <textarea class="row-term w-full p-3 rounded-xl border border-slate-700 bg-slate-900 focus:border-cyan-500 focus:outline-none text-sm font-bold text-emerald-400 resize-none overflow-hidden transition-all" placeholder="Term" rows="1" oninput="autoResize(this)">${term}</textarea>
-                    </div>
-                    <div class="col-span-12 md:col-span-8 flex gap-2 def-container transition-all">
-                        <textarea class="row-m1 p-3 rounded-xl border border-slate-700 bg-slate-900 focus:border-cyan-500 focus:outline-none text-sm text-slate-300 resize-none overflow-hidden transition-all duration-300" placeholder="Def 1 (req)" rows="1" oninput="updateRowLayout(this)">${m1}</textarea>
-                        <textarea class="row-m2 p-3 rounded-xl border border-transparent bg-transparent focus:bg-slate-900 hover:bg-slate-800 focus:border-cyan-500 focus:outline-none text-sm text-slate-300 resize-none overflow-hidden transition-all duration-300" placeholder="Def 2" rows="1" oninput="updateRowLayout(this)">${m2}</textarea>
-                        <textarea class="row-m3 p-3 rounded-xl border border-transparent bg-transparent focus:bg-slate-900 hover:bg-slate-800 focus:border-cyan-500 focus:outline-none text-sm text-slate-300 resize-none overflow-hidden transition-all duration-300 hidden" placeholder="Def 3" rows="1" oninput="updateRowLayout(this)">${m3}</textarea>
-                        <textarea class="row-m4 p-3 rounded-xl border border-transparent bg-transparent focus:bg-slate-900 hover:bg-slate-800 focus:border-cyan-500 focus:outline-none text-sm text-slate-300 resize-none overflow-hidden transition-all duration-300 hidden" placeholder="Def 4" rows="1" oninput="updateRowLayout(this)">${m4}</textarea>
-                        <textarea class="row-m5 p-3 rounded-xl border border-transparent bg-transparent focus:bg-slate-900 hover:bg-slate-800 focus:border-cyan-500 focus:outline-none text-sm text-slate-300 resize-none overflow-hidden transition-all duration-300 hidden" placeholder="Def 5" rows="1" oninput="updateRowLayout(this)">${m5}</textarea>
-                    </div>
-                    <div class="col-span-12 md:col-span-1 flex justify-center items-center h-full">
-                        <button onclick="this.closest('.editor-row').remove()" class="text-slate-600 hover:text-red-500 transition-colors p-2 mt-1" title="Remove Term">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                    </div>
-                </div>
-            `;
-        }
-
-        function addEditorRow() {
-            const rows = document.getElementById('editor-rows');
-            rows.insertAdjacentHTML('beforeend', createRowHTML());
-            const newRow = rows.lastElementChild;
-            updateRowLayout(newRow.querySelector('.row-m1'));
-            rows.scrollTop = rows.scrollHeight;
-        }
-
-        function cancelEdit() {
-            showHomeView();
-        }
-
-        function saveAndStart() {
-            const title = document.getElementById('set-title-input').value.trim() || "Operation: Unknown";
-            const rows = document.querySelectorAll('.editor-row');
-            const newWords = [];
-
-            rows.forEach(row => {
-                const term = row.querySelector('.row-term').value.trim();
-                const m1 = row.querySelector('.row-m1').value.trim().toLowerCase();
-                const m2 = row.querySelector('.row-m2').value.trim().toLowerCase();
-                const m3 = row.querySelector('.row-m3').value.trim().toLowerCase();
-                const m4 = row.querySelector('.row-m4').value.trim().toLowerCase();
-                const m5 = row.querySelector('.row-m5').value.trim().toLowerCase();
-
-                if (term && m1) {
-                    const meanings = [m1, m2, m3, m4, m5].filter(m => m !== "");
-                    newWords.push({ term, meanings });
-                }
-            });
-
-            if (newWords.length === 0) {
-                showModal("Error", "You must configure at least one target and definition.", () => {});
-                return;
-            }
-
-            currentSet = { title, words: newWords };
-            startGame();
-        }
-
-        function copyCurrentSet() {
-            const title = document.getElementById('set-title-input').value.trim() || "Operation: Unknown";
-            const rows = document.querySelectorAll('.editor-row');
-            const tempWords = [];
-            rows.forEach(row => {
-                const term = row.querySelector('.row-term').value.trim();
-                const meanings = [
-                    row.querySelector('.row-m1').value.trim(),
-                    row.querySelector('.row-m2').value.trim(),
-                    row.querySelector('.row-m3').value.trim(),
-                    row.querySelector('.row-m4').value.trim(),
-                    row.querySelector('.row-m5').value.trim()
-                ].filter(m => m !== "").map(m => m.toLowerCase());
-                if (term && meanings.length > 0) tempWords.push({ term, meanings });
-            });
-
-            const exportObj = { title, words: tempWords };
-            const dataStr = JSON.stringify(exportObj, null, 2);
+        // --- ADMIN LOGIC ---
+        window.showAdminView = async function() {
+            if(!isAdmin || !isFirebaseActive) return;
             
-            const tempTextArea = document.createElement("textarea");
-            tempTextArea.value = dataStr;
-            document.body.appendChild(tempTextArea);
-            tempTextArea.select();
+            hideAllViews();
+            views.admin.classList.remove('hidden');
+            views.admin.classList.add('flex');
+            
+            document.getElementById('admin-loading').classList.remove('hidden');
+            document.getElementById('admin-sets-grid').innerHTML = '';
+            document.getElementById('admin-players-grid').innerHTML = '';
+
             try {
-                document.execCommand('copy');
-                showModal("Success!", "Mission data copied to clipboard successfully.", () => {});
-            } catch (err) {
-                showModal("Error", "Failed to copy to clipboard.", () => {});
-            }
-            document.body.removeChild(tempTextArea);
-        }
-
-        function downloadCurrentSet() {
-            const title = document.getElementById('set-title-input').value.trim() || "Custom_Operation";
-            const rows = document.querySelectorAll('.editor-row');
-            const tempWords = [];
-            rows.forEach(row => {
-                const term = row.querySelector('.row-term').value.trim();
-                const meanings = [
-                    row.querySelector('.row-m1').value.trim(),
-                    row.querySelector('.row-m2').value.trim(),
-                    row.querySelector('.row-m3').value.trim(),
-                    row.querySelector('.row-m4').value.trim(),
-                    row.querySelector('.row-m5').value.trim()
-                ].filter(m => m !== "").map(m => m.toLowerCase());
-                if (term && meanings.length > 0) tempWords.push({ term, meanings });
-            });
-
-            const exportObj = { title, words: tempWords };
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 2));
-            const dlAnchorElem = document.createElement('a');
-            dlAnchorElem.setAttribute("href", dataStr);
-            dlAnchorElem.setAttribute("download", `${title.replace(/\s+/g, '_')}_data.json`);
-            dlAnchorElem.click();
-        }
-
-        function processImport() {
-            try {
-                const text = document.getElementById('import-textarea').value;
-                const parsed = JSON.parse(text);
-                if (!parsed.words || !Array.isArray(parsed.words) || parsed.words.length === 0) throw new Error("Missing 'words' array.");
-                const validWords = parsed.words.filter(w => w.term && w.meanings && w.meanings.length > 0);
-                if (validWords.length === 0) throw new Error("No valid targets found.");
+                // Fetch Player Stats
+                const statsRef = collection(db, 'artifacts', appId, 'public', 'data', 'playerStats');
+                const playersSnapshot = await getDocs(statsRef);
+                const players = [];
+                playersSnapshot.forEach((doc) => players.push({ uid: doc.id, ...doc.data() }));
                 
-                currentSet = { title: parsed.title || "Imported Operation", words: validWords };
-                startGame();
-            } catch (e) {
-                showModal("Decryption Failed", "Invalid JSON format. \n\n" + e.message, () => {});
-            }
-        }
-
-        function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const parsed = JSON.parse(e.target.result);
-                    if (!parsed.words || !Array.isArray(parsed.words)) {
-                        throw new Error("Missing 'words' array.");
-                    }
-                    const validWords = parsed.words.filter(w => w.term && w.meanings && w.meanings.length > 0);
-                    if (validWords.length === 0) throw new Error("No valid targets found.");
-                    
-                    currentSet = {
-                        title: parsed.title || "Imported Operation",
-                        words: validWords
-                    };
-                    startGame();
-                } catch (err) {
-                    showModal("Decryption Failed", "Invalid JSON format. \n\n" + err.message, () => {});
+                players.sort((a, b) => b.totalScore - a.totalScore);
+                
+                if(players.length === 0) {
+                    document.getElementById('admin-players-grid').innerHTML = `<div class="text-center py-4 text-slate-500">No players found.</div>`;
+                } else {
+                    players.forEach(p => {
+                        const card = document.createElement('div');
+                        card.className = "bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col shadow-md";
+                        card.innerHTML = `
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="text-lg font-bold text-white truncate pr-2">${p.username}</h3>
+                                <span class="font-mono text-emerald-400 font-bold">${(p.totalScore || 0).toLocaleString()}</span>
+                            </div>
+                            <p class="text-xs text-slate-500 mb-4 font-mono">UID: ${p.uid}</p>
+                            <div class="mt-auto flex justify-end">
+                                <button onclick="deletePlayerProfileAdmin('${p.uid}', '${p.username.replace(/'/g, "\\'")}')" class="px-4 py-2 bg-rose-900/20 text-rose-400 hover:bg-rose-600 hover:text-white border border-rose-800/50 rounded-lg font-bold text-xs transition-colors">Ban / Remove Player</button>
+                            </div>
+                        `;
+                        document.getElementById('admin-players-grid').appendChild(card);
+                    });
                 }
-            };
-            reader.readAsText(file);
-            event.target.value = ''; // Reset input
-        }
+                
+                document.getElementById('admin-loading').classList.add('hidden');
+            } catch (error) {
+                console.error("Admin fetch error:", error);
+                document.getElementById('admin-loading').classList.add('hidden');
+                document.getElementById('admin-players-grid').innerHTML = `<div class="text-center py-4 text-red-400">Failed to load database.</div>`;
+            }
+        };
 
-        // ==========================================
-        // GAME ENGINE
-        // ==========================================
+        window.deletePlayerProfileAdmin = function(uid, username) {
+            showModal("Remove Player?", `Are you sure you want to permanently delete '${username}' from the global network? This deletes their score and leaderboard position.`, async () => {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'playerStats', uid));
+                    showAdminView();
+                } catch (error) {
+                    console.error("Failed to delete user:", error);
+                    alert("Failed to execute. Check permissions.");
+                }
+            });
+        };
+
+        // --- Canvas Setup ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const container = document.getElementById('canvas-container');
@@ -727,7 +1059,6 @@
         let lasers = [];
         let particles = [];
         let floatingTexts = [];
-        
         let spawnTimer = 0;
 
         function resizeCanvas() {
@@ -736,7 +1067,6 @@
         }
         window.addEventListener('resize', resizeCanvas);
         
-        // --- Settings Management ---
         function updateSettingsUI() {
             ['slow','normal','fast'].forEach(val => {
                 const btn = document.getElementById(`btn-speed-${val}`);
@@ -756,23 +1086,23 @@
             });
         }
 
-        function openSettings() {
+        window.openSettings = function() {
             if(isGameOver) return;
             isPaused = true;
             updateSettingsUI();
             document.getElementById('settings-overlay').classList.remove('hidden');
             document.getElementById('settings-overlay').classList.add('flex');
-        }
+        };
 
-        function resumeGame() {
+        window.resumeGame = function() {
             document.getElementById('settings-overlay').classList.add('hidden');
             document.getElementById('settings-overlay').classList.remove('flex');
             isPaused = false;
-            lastTime = performance.now(); // Reset delta-time anchor
+            lastTime = performance.now(); 
             inputEl.focus();
-        }
+        };
 
-        function attemptSetSpeed(val) {
+        window.attemptSetSpeed = function(val) {
             if(val === configSpeed) return;
             showModal("Restart Mission?", "Changing game speed will restart the current mission. Proceed?", () => {
                 configSpeed = val;
@@ -780,9 +1110,9 @@
                 document.getElementById('settings-overlay').classList.remove('flex');
                 startGame();
             });
-        }
+        };
 
-        function attemptSetLives(val) {
+        window.attemptSetLives = function(val) {
             if(val === configLives) return;
             showModal("Restart Mission?", "Changing max lives will restart the current mission. Proceed?", () => {
                 configLives = val;
@@ -790,13 +1120,30 @@
                 document.getElementById('settings-overlay').classList.remove('flex');
                 startGame();
             });
-        }
+        };
 
-        function startGame() {
+        window.startGame = function() {
             hideAllViews();
             views.game.classList.remove('hidden');
+            views.game.classList.add('flex');
+            
             document.getElementById('game-over-overlay').classList.add('hidden');
+            document.getElementById('game-over-overlay').classList.remove('flex');
+            document.getElementById('game-over-sync-container').classList.add('hidden');
+            
             document.getElementById('game-set-title').innerText = currentSet.title;
+
+            const netStatus = document.getElementById('game-network-status');
+            if(isGlobalSet) {
+                netStatus.innerText = "Official Server";
+                netStatus.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-cyan-900/50 text-cyan-400 border border-cyan-700";
+            } else {
+                netStatus.innerText = "Offline Mode";
+                netStatus.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-slate-800 text-slate-400 border border-slate-700";
+            }
+
+            // Force reflow so clientWidth is correct before resizeCanvas is called
+            void views.game.offsetWidth;
             resizeCanvas();
 
             score = 0;
@@ -806,7 +1153,7 @@
             lasers = [];
             particles = [];
             floatingTexts = [];
-            spawnTimer = 60; // Start with quick spawn
+            spawnTimer = 60; 
             isGameOver = false;
             isPaused = false;
 
@@ -817,21 +1164,20 @@
 
             lastTime = performance.now();
             gameLoopId = requestAnimationFrame(gameLoop);
-        }
+        };
 
-        function abortGame() {
+        window.abortGame = function() {
             isPaused = true;
             showModal("Abort Mission?", "Are you sure you want to return to headquarters? Current progress will be lost.", () => {
                 showHomeView();
             });
-            // Override modal cancel to resume the game quietly
             uiElements.modalCancel.onclick = () => {
                 closeModal();
                 isPaused = false;
                 lastTime = performance.now();
                 inputEl.focus();
             };
-        }
+        };
 
         function updateHUD() {
             document.getElementById('score-display').innerText = `SCORE: ${score.toString().padStart(6, '0')}`;
@@ -860,25 +1206,20 @@
             }
         }
 
-        // --- Game Loop ---
+        // --- Game Loop Core ---
         let lastTime = 0;
         function gameLoop(time) {
             if(isGameOver) return;
-            const dt = (time - lastTime) / 16.66; // Normalize to 60fps
+            const dt = (time - lastTime) / 16.66; 
             lastTime = time;
 
-            if(!isPaused) {
-                update(dt);
-            }
+            if(!isPaused) update(dt);
             draw();
 
-            if(!isGameOver) {
-                gameLoopId = requestAnimationFrame(gameLoop);
-            }
+            if(!isGameOver) gameLoopId = requestAnimationFrame(gameLoop);
         }
 
         function update(dt) {
-            // Level and config speed scaling
             level = 1 + Math.floor(score / 200);
             
             let speedMult = 1.0;
@@ -886,15 +1227,13 @@
             if (configSpeed === 'fast') speedMult = 1.5;
 
             const baseSpeed = (0.5 + (level * 0.15)) * speedMult;
-            const spawnInterval = Math.max(40, 120 - (level * 10)) / speedMult; // Faster spawns over time
+            const spawnInterval = Math.max(40, 120 - (level * 10)) / speedMult; 
 
-            // Spawn Enemies
             spawnTimer += dt;
             if(spawnTimer >= spawnInterval) {
                 spawnTimer = 0;
                 const targetWord = currentSet.words[Math.floor(Math.random() * currentSet.words.length)];
                 
-                // Measure text roughly to keep it on screen
                 ctx.font = 'bold 24px Inter';
                 const tw = ctx.measureText(targetWord.term).width;
                 const minX = tw/2 + 20;
@@ -905,23 +1244,21 @@
                     meanings: targetWord.meanings,
                     x: Math.random() * (maxX - minX) + minX,
                     y: -30,
-                    speed: baseSpeed * (0.8 + Math.random() * 0.4), // Slight random speed variance
+                    speed: baseSpeed * (0.8 + Math.random() * 0.4),
                     width: tw
                 });
             }
 
-            // Update Enemies
             for(let i = activeEnemies.length - 1; i >= 0; i--) {
                 const e = activeEnemies[i];
                 e.y += e.speed * dt;
                 
                 if(e.y > canvas.height) {
-                    // Missed! Spawn floating text showing the correct answer
                     floatingTexts.push({
                         text: e.meanings.join(' / '),
                         x: e.x,
                         y: canvas.height - 40,
-                        vy: -1.5, // Float upwards
+                        vy: -1.5,
                         life: 1.0
                     });
 
@@ -929,61 +1266,46 @@
                     lives--;
                     updateHUD();
                     
-                    // Screen shake/flash effect
                     inputEl.parentElement.classList.remove('input-wrong');
-                    void inputEl.parentElement.offsetWidth; // trigger reflow
+                    void inputEl.parentElement.offsetWidth;
                     inputEl.parentElement.classList.add('input-wrong');
 
-                    if(lives <= 0) {
-                        triggerGameOver();
-                    }
+                    if(lives <= 0) triggerGameOver();
                 }
             }
 
-            // Update Floating Texts
             for(let i = floatingTexts.length - 1; i >= 0; i--) {
                 const ft = floatingTexts[i];
                 ft.y += ft.vy * dt;
-                ft.life -= 0.008 * dt; // Fade out slowly
-                if(ft.life <= 0) {
-                    floatingTexts.splice(i, 1);
-                }
+                ft.life -= 0.008 * dt;
+                if(ft.life <= 0) floatingTexts.splice(i, 1);
             }
 
-            // Update Lasers
             for(let i = lasers.length - 1; i >= 0; i--) {
                 const l = lasers[i];
                 l.progress += 0.15 * dt;
-                if(l.progress >= 1) {
-                    lasers.splice(i, 1);
-                }
+                if(l.progress >= 1) lasers.splice(i, 1);
             }
 
-            // Update Particles
             for(let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
                 p.x += p.vx * dt;
                 p.y += p.vy * dt;
                 p.life -= 0.05 * dt;
-                if(p.life <= 0) {
-                    particles.splice(i, 1);
-                }
+                if(p.life <= 0) particles.splice(i, 1);
             }
         }
 
         function draw() {
-            // Background
-            ctx.fillStyle = '#020617'; // slate-950
+            ctx.fillStyle = '#020617';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw Base/Turret
             const baseX = canvas.width / 2;
             const baseY = canvas.height;
             
-            // Turret glow
             ctx.shadowBlur = 20;
             ctx.shadowColor = '#06b6d4';
-            ctx.fillStyle = '#06b6d4'; // cyan-500
+            ctx.fillStyle = '#06b6d4';
             
             ctx.beginPath();
             ctx.moveTo(baseX - 25, baseY);
@@ -992,11 +1314,9 @@
             ctx.lineTo(baseX + 25, baseY);
             ctx.fill();
             
-            // Turret barrel
             ctx.fillRect(baseX - 5, baseY - 50, 10, 20);
-            ctx.shadowBlur = 0; // reset
+            ctx.shadowBlur = 0;
 
-            // Draw Particles
             particles.forEach(p => {
                 ctx.globalAlpha = p.life;
                 ctx.fillStyle = p.color;
@@ -1006,13 +1326,12 @@
             });
             ctx.globalAlpha = 1.0;
 
-            // Draw Floating Texts
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             floatingTexts.forEach(ft => {
                 ctx.globalAlpha = Math.max(0, ft.life);
                 ctx.font = 'bold 20px Inter';
-                ctx.fillStyle = '#ef4444'; // red-500
+                ctx.fillStyle = '#ef4444';
                 ctx.shadowBlur = 15;
                 ctx.shadowColor = '#ef4444';
                 ctx.fillText(ft.text, ft.x, ft.y);
@@ -1020,28 +1339,24 @@
             ctx.globalAlpha = 1.0;
             ctx.shadowBlur = 0;
 
-            // Draw Enemies
             ctx.font = 'bold 22px JetBrains Mono';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
             activeEnemies.forEach(e => {
-                // Glow effect
                 ctx.shadowBlur = 15;
-                ctx.shadowColor = '#10b981'; // emerald-500
-                ctx.fillStyle = '#34d399'; // emerald-400
+                ctx.shadowColor = '#10b981';
+                ctx.fillStyle = '#34d399';
                 ctx.fillText(e.term, e.x, e.y);
             });
             ctx.shadowBlur = 0;
 
-            // Draw Lasers
             lasers.forEach(l => {
-                ctx.strokeStyle = '#22d3ee'; // cyan-400
+                ctx.strokeStyle = '#22d3ee';
                 ctx.lineWidth = 4;
                 ctx.shadowBlur = 10;
                 ctx.shadowColor = '#22d3ee';
                 
-                // Calculate current laser head position
                 const currentX = l.startX + (l.targetX - l.startX) * l.progress;
                 const currentY = l.startY + (l.targetY - l.startY) * l.progress;
 
@@ -1068,13 +1383,9 @@
 
             let hitEnemy = null;
             let hitIndex = -1;
-
-            // Find lowest enemy on screen that matches the typed translation
-            // Check in reverse so if multiple enemies have the same translation, we hit the lowest one
             let lowestY = -1;
             for(let i = 0; i < activeEnemies.length; i++) {
                 const e = activeEnemies[i];
-                // Check if exact match OR contains full string (generous matching)
                 const isMatch = e.meanings.some(m => 
                     typed === m || (typed.includes(m) && m.length > 3)
                 );
@@ -1088,10 +1399,9 @@
 
             const inputContainer = inputEl.parentElement;
             inputContainer.classList.remove('input-correct', 'input-wrong');
-            void inputContainer.offsetWidth; // trigger reflow
+            void inputContainer.offsetWidth;
 
             if(hitEnemy) {
-                // Boom
                 lasers.push({
                     startX: canvas.width / 2,
                     startY: canvas.height - 50,
@@ -1107,7 +1417,6 @@
                 updateHUD();
                 inputContainer.classList.add('input-correct');
             } else {
-                // Miss
                 inputContainer.classList.add('input-wrong');
             }
             
@@ -1120,7 +1429,16 @@
             document.getElementById('final-score').innerText = score;
             document.getElementById('game-over-overlay').classList.remove('hidden');
             document.getElementById('game-over-overlay').classList.add('flex');
+
+            if(isGlobalSet && score > 0) {
+                window.syncScoreToGlobalProfile(score);
+            }
         }
+
+        // --- Initialization ---
+        window.onload = function() {
+            initFirebase();
+        };
 
     </script>
 </body>
