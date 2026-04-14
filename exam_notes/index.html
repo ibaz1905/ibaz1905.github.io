@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Notepad</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- html2pdf for perfect effect exports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        .handwriting { 
+            font-family: 'Caveat', cursive; 
+            font-size: 1.5rem;
+            letter-spacing: 0.02em;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(0,0,0,0.2);
+            border-radius: 20px;
+        }
+
+        .paper-bg-yellow { background-color: #fcf6d6; }
+        .paper-bg-white { background-color: #ffffff; }
+
+        /* Base endless paper grid. Shifted down 29px to perfectly align baseline text with blue lines */
+        .editor-paper-bg {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2000' height='36'%3E%3Crect x='40' y='0' width='1' height='36' fill='rgba(248,113,113,0.6)'/%3E%3Crect x='46' y='0' width='1' height='36' fill='rgba(248,113,113,0.6)'/%3E%3Crect x='0' y='35' width='2000' height='1' fill='%2393c5fd'/%3E%3C/svg%3E");
+            background-size: 2000px 36px;
+            background-repeat: repeat;
+            background-position: 0 29px;
+            line-height: 36px;
+            /* 72px top padding pushes the start of text down to allow the PDF page breaks to safely pass BETWEEN lines */
+            padding: 72px 24px 72px 64px;
+        }
+
+        /* Adds the A4 width constraint and visual page break markers */
+        .a4-constraint {
+            background-image: 
+                /* Page Break Indicator (Draws a dashed gap every 1116px) */
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='1116'%3E%3Crect x='0' y='1112' width='100' height='4' fill='rgba(0,0,0,0.06)'/%3E%3Cline x1='0' y1='1116' x2='100' y2='1116' stroke='%23a8a29e' stroke-width='2' stroke-dasharray='6 6'/%3E%3C/svg%3E"),
+                /* Regular Paper Lines */
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2000' height='36'%3E%3Crect x='40' y='0' width='1' height='36' fill='rgba(248,113,113,0.6)'/%3E%3Crect x='46' y='0' width='1' height='36' fill='rgba(248,113,113,0.6)'/%3E%3Crect x='0' y='35' width='2000' height='1' fill='%2393c5fd'/%3E%3C/svg%3E");
+            
+            background-size: 100px 1116px, 2000px 36px;
+            background-repeat: repeat, repeat;
+            /* 0 0 keeps the breaks at exactly 1116px. 0 29px shifts the lines to match text */
+            background-position: 0 0, 0 29px;
+            
+            max-width: 794px; /* Standard A4 width at 96 DPI */
+            min-height: 1116px; /* Show at least one full page outline */
+            margin: 0 auto;
+            border-left: 1px dashed rgba(0,0,0,0.1);
+            border-right: 1px dashed rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-stone-900 text-stone-100 font-sans">
+
+    <!-- App Wrapper -->
+    <div id="app-wrapper" class="flex h-screen w-full overflow-hidden transition-colors">
+        
+        <!-- Sidebar (Binder/Folder Area) -->
+        <div id="sidebar" class="w-72 flex-shrink-0 bg-stone-800 border-r border-stone-700 transition-all duration-300 ease-in-out flex flex-col relative z-20">
+            <div class="p-4 border-b border-stone-700 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="book" class="w-5 h-5 text-amber-500"></i>
+                    <h1 class="text-lg font-semibold tracking-wide whitespace-nowrap overflow-hidden">Exam Binder</h1>
+                </div>
+            </div>
+
+            <div class="p-3">
+                <button id="add-note-btn" class="w-full flex items-center justify-center space-x-2 bg-amber-600 hover:bg-amber-500 text-white py-2.5 px-4 rounded-md transition-colors duration-200">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span class="font-medium">New Note</span>
+                </button>
+            </div>
+
+            <div id="notes-list" class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
+                <!-- Notes injected by JS -->
+            </div>
+
+            <!-- Revision Resources Footer -->
+            <div class="p-4 border-t border-stone-700 bg-stone-800/80 mt-auto">
+                <p class="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-3">Revision Resources</p>
+                <div class="flex flex-col space-y-2.5">
+                    <a href="/optime" target="_blank" class="group flex items-center text-sm text-stone-300 hover:text-amber-400 transition-colors">
+                        <i data-lucide="brain" class="w-4 h-4 mr-2 opacity-70 group-hover:opacity-100"></i>
+                        Optime
+                    </a>
+                    <a href="/optime_invaders" target="_blank" class="group flex items-center text-sm text-stone-300 hover:text-amber-400 transition-colors">
+                        <i data-lucide="gamepad-2" class="w-4 h-4 mr-2 opacity-70 group-hover:opacity-100"></i>
+                        Optime Invaders
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Notepad Area -->
+        <div id="main-area" class="flex-1 flex flex-col bg-stone-900 relative">
+            
+            <!-- Toggle Sidebar Button -->
+            <button id="toggle-sidebar-btn" class="absolute left-4 top-4 z-30 p-2 bg-stone-800 rounded-md text-stone-400 hover:text-white shadow-lg border border-stone-700 transition-colors">
+                <i data-lucide="chevron-left" class="w-4 h-4" id="toggle-sidebar-icon"></i>
+            </button>
+
+            <div id="editor-wrapper" class="flex-1 flex justify-center sm:p-8 h-full hidden overflow-hidden">
+                
+                <!-- The Notepad Paper Container -->
+                <div id="paper-container" class="relative paper-bg-yellow shadow-2xl rounded-r-xl rounded-l-sm transition-all duration-300 w-full max-w-4xl flex flex-col overflow-hidden" style="box-shadow: -4px 0 15px rgba(0,0,0,0.4), inset 4px 0 10px rgba(0,0,0,0.05);">
+                    
+                    <!-- Paper Header (Title & Controls) -->
+                    <div id="paper-header" class="flex items-center justify-between px-8 sm:px-16 py-6 border-b-2 border-blue-200/50 paper-bg-yellow transition-colors duration-300 z-20 relative">
+                        <input type="text" id="note-title" placeholder="Note Title..." class="bg-transparent text-3xl font-bold text-stone-800 focus:outline-none w-full placeholder-stone-400/60 font-['Inter']" />
+                        
+                        <div class="flex items-center space-x-2 ml-4">
+                            
+                            <!-- Settings Dropdown -->
+                            <div class="relative">
+                                <button id="toggle-settings-btn" class="p-2 text-stone-500 hover:text-stone-800 hover:bg-black/5 rounded-full transition-colors flex-shrink-0" title="Paper Settings">
+                                    <i data-lucide="settings-2" class="w-5 h-5"></i>
+                                </button>
+                                <div id="settings-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-xl border border-stone-200 z-50 py-2 text-stone-700 text-sm font-['Inter']">
+                                    <div class="px-4 py-1 text-xs font-semibold text-stone-400 uppercase tracking-wider">Color</div>
+                                    <button id="color-yellow-btn" class="w-full text-left px-4 py-2 hover:bg-stone-100 flex justify-between items-center">
+                                        Yellow Pad <i data-lucide="check" class="w-4 h-4 text-amber-500" id="check-yellow"></i>
+                                    </button>
+                                    <button id="color-white-btn" class="w-full text-left px-4 py-2 hover:bg-stone-100 flex justify-between items-center">
+                                        White Paper <i data-lucide="check" class="w-4 h-4 text-amber-500 hidden" id="check-white"></i>
+                                    </button>
+                                    <div class="border-t border-stone-100 my-1"></div>
+                                    <div class="px-4 py-1 text-xs font-semibold text-stone-400 uppercase tracking-wider">Layout</div>
+                                    <button id="layout-a4-btn" class="w-full text-left px-4 py-2 hover:bg-stone-100 flex justify-between items-center">
+                                        A4 Document <i data-lucide="check" class="w-4 h-4 text-blue-500" id="check-a4"></i>
+                                    </button>
+                                    <button id="layout-endless-btn" class="w-full text-left px-4 py-2 hover:bg-stone-100 flex justify-between items-center">
+                                        Endless Scroll <i data-lucide="check" class="w-4 h-4 text-blue-500 hidden" id="check-endless"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button id="download-btn" class="p-2 text-stone-500 hover:text-stone-800 hover:bg-black/5 rounded-full transition-colors flex-shrink-0" title="Export to PDF">
+                                <i data-lucide="download" class="w-5 h-5"></i>
+                            </button>
+                            <button id="toggle-focus-btn" class="p-2 text-stone-500 hover:text-stone-800 hover:bg-black/5 rounded-full transition-colors flex-shrink-0 hidden sm:block" title="Focus Mode">
+                                <i data-lucide="maximize-2" class="w-5 h-5" id="focus-icon"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Formatting Toolbar -->
+                    <div id="paper-toolbar" class="flex flex-wrap items-center gap-1.5 px-8 sm:px-16 py-2 border-b-2 border-blue-200/50 paper-bg-yellow transition-colors duration-300 z-20 relative text-stone-600 shadow-sm">
+                        <button class="format-btn p-1.5 hover:bg-black/5 rounded flex items-center gap-1 text-sm font-medium transition-colors" data-format="sub" title="Subscript (or type /1)"><i data-lucide="subscript" class="w-4 h-4"></i> Sub</button>
+                        <button class="format-btn p-1.5 hover:bg-black/5 rounded flex items-center gap-1 text-sm font-medium transition-colors" data-format="sup" title="Superscript (or type /2)"><i data-lucide="superscript" class="w-4 h-4"></i> Sup</button>
+                        <div class="w-px h-5 bg-stone-300 mx-1"></div>
+                        <button class="format-btn p-1.5 hover:bg-black/5 rounded flex items-center gap-1 text-sm font-medium transition-colors" data-format="smallcaps" title="Small Caps (or type /3)"><i data-lucide="type" class="w-4 h-4"></i> Caps</button>
+                        <button class="format-btn p-1.5 hover:bg-black/5 rounded flex items-center gap-1 text-sm font-medium transition-colors" data-format="doubleSize" title="Double Size (or type /4)"><i data-lucide="heading" class="w-4 h-4"></i> 2x Font</button>
+                        <div class="w-px h-5 bg-stone-300 mx-1"></div>
+                        <button class="format-btn p-1.5 hover:bg-black/5 rounded flex items-center gap-1 text-sm font-medium transition-colors" data-format="rect" title="Box (or type /5)"><i data-lucide="square" class="w-4 h-4"></i> Box</button>
+                        <button class="format-btn p-1.5 hover:bg-black/5 rounded flex items-center gap-1 text-sm font-medium transition-colors" data-format="explosion" title="Explosion (or type /6)"><i data-lucide="sparkles" class="w-4 h-4"></i> Burst</button>
+                        <div class="w-px h-5 bg-stone-300 mx-1"></div>
+                        <button class="format-btn p-1.5 hover:bg-black/5 rounded flex items-center gap-1 text-sm font-medium transition-colors" data-format="center" title="Center Text"><i data-lucide="align-center" class="w-4 h-4"></i> Center</button>
+                        <div class="w-px h-5 bg-stone-300 mx-1"></div>
+                        <div class="flex items-center gap-1">
+                            <button class="format-btn w-6 h-6 rounded-full bg-[#86efac] hover:opacity-80 shadow-sm border border-black/10" data-format="hl-green" title="Green Highlight (or /7)"></button>
+                            <button class="format-btn w-6 h-6 rounded-full bg-[#fdba74] hover:opacity-80 shadow-sm border border-black/10" data-format="hl-orange" title="Orange Highlight (or /8)"></button>
+                            <button class="format-btn w-6 h-6 rounded-full bg-[#f9a8d4] hover:opacity-80 shadow-sm border border-black/10" data-format="hl-pink" title="Pink Highlight (or /9)"></button>
+                            <button class="format-btn w-6 h-6 rounded-full bg-[#fef08a] hover:opacity-80 shadow-sm border border-black/10" data-format="hl-yellow" title="Yellow Highlight (or /10)"></button>
+                            <button class="format-btn w-6 h-6 rounded-full bg-[#93c5fd] hover:opacity-80 shadow-sm border border-black/10" data-format="hl-blue" title="Blue Highlight (or /11)"></button>
+                        </div>
+                    </div>
+
+                    <!-- Lined Paper Body Area -->
+                    <div id="paper-body" class="relative flex-1 w-full paper-bg-yellow transition-colors duration-300 overflow-y-auto custom-scrollbar">
+                        
+                        <!-- The Editable Text Area -->
+                        <div id="editor-content" contenteditable="true" spellcheck="false" class="min-h-full w-full focus:outline-none z-10 bg-transparent text-stone-800 handwriting editor-paper-bg a4-constraint"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="flex-1 flex flex-col items-center justify-center text-stone-500 space-y-4">
+                <i data-lucide="pen-tool" class="w-16 h-16 opacity-20"></i>
+                <p class="text-lg">Select or create a new note to start summarizing.</p>
+                <button id="empty-state-btn" class="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-md transition-colors">
+                    Create Note
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State & Default Tutorial Note
+        let notes = [
+            {
+                id: '1',
+                title: 'How to use this Notepad ✍️',
+                content: `<div>Welcome to your interactive exam notebook! Let's cover the basics:</div><div><br></div><div><b>1. Auto-Stopping Formats</b></div><div>Click Subscript (or type /1), type your letters, and press <b>Space</b>. It will <sub>automatically return</sub> to normal! Same goes for <sup>Superscript</sup> and <span style="font-variant: small-caps; text-transform: lowercase; font-weight: bold;">Small Caps</span>.</div><div><br></div><div><b>2. Grid-Perfect Effects</b></div><div>Everything respects the 36px line height. Use the toolbar or slash commands to add a snug <span style="border: 1px solid #57534e; border-radius: 4px; background: rgba(255,255,255,0.4); margin: 0 2px;">box</span> around text, or an <span style="position: relative; display: inline-block;"><svg style="position: absolute; top: -5%; left: -5%; width: 110%; height: 110%; pointer-events: none; z-index: 0;" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M 5 10 L 15 3 L 85 5 L 95 10 L 98 50 L 95 90 L 85 95 L 15 97 L 5 90 Z" fill="none" stroke="#ca8a04" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path></svg><span style="position: relative; z-index: 1;">explosion</span></span> burst around a word without messing up your layout!</div><div><br></div><div><b>3. Double Font Size</b></div><div>Type /4 to drop a <span style="font-size: 48px; line-height: 72px;">massive header</span> that perfectly takes up exactly two lines on the paper grid.</div><div><br></div><div style="text-align: center;"><b>4. Centering Text</b></div><div style="text-align: center;">Click the "Center" button. When you hit Enter, it instantly snaps the next line back to the left.</div><div><br></div><div><b>5. Exporting to PDF</b></div><div>Click the download icon in the top right. It will convert your notes into a perfect A4 PDF file with all your highlights <span style="background-color: #86efac; mix-blend-mode: multiply; padding: 2px 4px; border-radius: 4px;">intact</span>! Also check out some of my other projects, available at © Isaac Bazlov 2026</div>`
+            }
+        ];
+        let activeNoteId = '1';
+        let isSidebarOpen = true;
+        let focusMode = false;
+        let paperColor = 'yellow';
+        let layoutMode = 'a4';
+
+        // DOM Elements
+        const appWrapper = document.getElementById('app-wrapper');
+        const mainArea = document.getElementById('main-area');
+        const sidebar = document.getElementById('sidebar');
+        const notesListEl = document.getElementById('notes-list');
+        const editorWrapper = document.getElementById('editor-wrapper');
+        const emptyState = document.getElementById('empty-state');
+        const noteTitleInput = document.getElementById('note-title');
+        const editorContent = document.getElementById('editor-content');
+        
+        const addNoteBtn = document.getElementById('add-note-btn');
+        const emptyStateBtn = document.getElementById('empty-state-btn');
+        const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const toggleFocusBtn = document.getElementById('toggle-focus-btn');
+        
+        // Settings Menu Elements
+        const toggleSettingsBtn = document.getElementById('toggle-settings-btn');
+        const settingsMenu = document.getElementById('settings-menu');
+        const colorYellowBtn = document.getElementById('color-yellow-btn');
+        const colorWhiteBtn = document.getElementById('color-white-btn');
+        const layoutA4Btn = document.getElementById('layout-a4-btn');
+        const layoutEndlessBtn = document.getElementById('layout-endless-btn');
+        
+        const paperContainer = document.getElementById('paper-container');
+        const paperHeader = document.getElementById('paper-header');
+        const paperToolbar = document.getElementById('paper-toolbar');
+        const paperBody = document.getElementById('paper-body');
+        const formatBtns = document.querySelectorAll('.format-btn');
+
+        // Functions
+        function getActiveNote() {
+            return notes.find(n => n.id === activeNoteId) || null;
+        }
+
+        function renderSidebar() {
+            notesListEl.innerHTML = '';
+            notes.forEach(note => {
+                const isActive = activeNoteId === note.id;
+                const div = document.createElement('div');
+                div.className = `group flex items-center justify-between p-3 rounded-md cursor-pointer transition-colors duration-200 ${isActive ? 'bg-stone-700 text-amber-400' : 'text-stone-300 hover:bg-stone-700/50 hover:text-stone-100'}`;
+                
+                div.innerHTML = `
+                    <div class="flex items-center space-x-3 overflow-hidden">
+                        <i data-lucide="align-left" class="w-4 h-4 flex-shrink-0 opacity-70"></i>
+                        <span class="truncate font-medium text-sm">${note.title || 'Untitled Note'}</span>
+                    </div>
+                    <button class="delete-btn opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all" title="Delete note" data-id="${note.id}">
+                        <i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i>
+                    </button>
+                `;
+
+                div.addEventListener('click', (e) => {
+                    if(!e.target.closest('.delete-btn')) {
+                        activeNoteId = note.id;
+                        renderSidebar();
+                        renderActiveNote();
+                    }
+                });
+
+                notesListEl.appendChild(div);
+            });
+
+            // Attach delete listeners
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = e.currentTarget.getAttribute('data-id');
+                    deleteNote(id);
+                });
+            });
+
+            lucide.createIcons();
+        }
+
+        function renderActiveNote() {
+            const activeNote = getActiveNote();
+            
+            if (activeNote) {
+                editorWrapper.classList.remove('hidden');
+                emptyState.classList.add('hidden');
+                
+                noteTitleInput.value = activeNote.title;
+                if (editorContent.innerHTML !== activeNote.content) {
+                    editorContent.innerHTML = activeNote.content;
+                }
+            } else {
+                editorWrapper.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+            }
+        }
+
+        function createNote() {
+            const newNote = {
+                id: Date.now().toString(),
+                title: 'Untitled Note',
+                content: ''
+            };
+            notes.unshift(newNote);
+            activeNoteId = newNote.id;
+            
+            if (!isSidebarOpen && !focusMode) {
+                toggleSidebar();
+            }
+            
+            renderSidebar();
+            renderActiveNote();
+        }
+
+        function deleteNote(id) {
+            notes = notes.filter(n => n.id !== id);
+            if (activeNoteId === id && notes.length > 0) {
+                activeNoteId = notes[0].id;
+            } else if (notes.length === 0) {
+                createNote();
+                return;
+            }
+            renderSidebar();
+            renderActiveNote();
+        }
+
+        function updateNoteData(field, value) {
+            const activeNote = getActiveNote();
+            if (activeNote) {
+                activeNote[field] = value;
+                if (field === 'title') {
+                    renderSidebar(); // Update title in sidebar
+                }
+            }
+        }
+
+        function toggleSidebar() {
+            isSidebarOpen = !isSidebarOpen;
+            if (isSidebarOpen) {
+                sidebar.classList.remove('w-0');
+                sidebar.classList.add('w-72');
+                document.getElementById('toggle-sidebar-icon').setAttribute('data-lucide', 'chevron-left');
+            } else {
+                sidebar.classList.remove('w-72');
+                sidebar.classList.add('w-0');
+                document.getElementById('toggle-sidebar-icon').setAttribute('data-lucide', 'chevron-right');
+            }
+            lucide.createIcons();
+        }
+
+        function toggleFocus() {
+            focusMode = !focusMode;
+            if (focusMode) {
+                isSidebarOpen = false;
+                sidebar.classList.remove('w-72');
+                sidebar.classList.add('w-0');
+                toggleSidebarBtn.classList.add('hidden');
+                document.getElementById('focus-icon').setAttribute('data-lucide', 'minimize-2');
+            } else {
+                isSidebarOpen = true;
+                sidebar.classList.remove('w-0');
+                sidebar.classList.add('w-72');
+                toggleSidebarBtn.classList.remove('hidden');
+                document.getElementById('toggle-sidebar-icon').setAttribute('data-lucide', 'chevron-left');
+                document.getElementById('focus-icon').setAttribute('data-lucide', 'maximize-2');
+            }
+            lucide.createIcons();
+        }
+
+        // Settings Menu Toggles
+        toggleSettingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsMenu.classList.toggle('hidden');
+        });
+        document.addEventListener('click', (e) => {
+            if (!settingsMenu.contains(e.target)) settingsMenu.classList.add('hidden');
+        });
+
+        colorYellowBtn.addEventListener('click', () => setPaperColor('yellow'));
+        colorWhiteBtn.addEventListener('click', () => setPaperColor('white'));
+        layoutA4Btn.addEventListener('click', () => setLayoutMode('a4'));
+        layoutEndlessBtn.addEventListener('click', () => setLayoutMode('endless'));
+
+        function setPaperColor(color) {
+            paperColor = color;
+            document.getElementById('check-yellow').classList.toggle('hidden', color !== 'yellow');
+            document.getElementById('check-white').classList.toggle('hidden', color !== 'white');
+            
+            const elementsToUpdate = [paperContainer, paperHeader, paperToolbar, paperBody];
+            elementsToUpdate.forEach(el => {
+                if (color === 'yellow') {
+                    el.classList.remove('paper-bg-white');
+                    el.classList.add('paper-bg-yellow');
+                } else {
+                    el.classList.remove('paper-bg-yellow');
+                    el.classList.add('paper-bg-white');
+                }
+            });
+            settingsMenu.classList.add('hidden');
+        }
+
+        function setLayoutMode(mode) {
+            layoutMode = mode;
+            document.getElementById('check-a4').classList.toggle('hidden', mode !== 'a4');
+            document.getElementById('check-endless').classList.toggle('hidden', mode !== 'endless');
+            
+            if (mode === 'a4') {
+                editorContent.classList.add('a4-constraint');
+            } else {
+                editorContent.classList.remove('a4-constraint');
+            }
+            settingsMenu.classList.add('hidden');
+        }
+
+        // The Ultimate Fix: True In-Place DOM Snapshot 
+        function downloadCurrentNoteAsPDF() {
+            const activeNote = getActiveNote();
+            if (!activeNote) return;
+            
+            // 1. Show a loading overlay 
+            const loadingOverlay = document.createElement('div');
+            loadingOverlay.style.cssText = `
+                position: fixed; inset: 0; background: #1c1917; z-index: 999999; 
+                display: flex; flex-direction: column; align-items: center; justify-content: center;
+                color: #fbbf24; font-family: sans-serif;
+            `;
+            loadingOverlay.innerHTML = `
+                <svg class="animate-spin h-10 w-10 text-amber-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <h2 class="text-xl font-semibold">Generating Perfect PDF...</h2>
+                <p class="text-stone-400 mt-2">Rendering real visible layout, please wait.</p>
+            `;
+            document.body.appendChild(loadingOverlay);
+
+            // 2. Save ALL original layout states
+            const origSidebarDisplay = sidebar.style.display;
+            const origToggleDisplay = toggleSidebarBtn.style.display;
+            const origHeaderDisplay = paperHeader.style.display;
+            const origToolbarDisplay = paperToolbar.style.display;
+            const origWrapperCSS = editorWrapper.style.cssText;
+            const origContainerCSS = paperContainer.style.cssText;
+            const origBodyCSS = paperBody.style.cssText;
+            const origContentCSS = editorContent.style.cssText;
+            const origMainBg = mainArea.style.backgroundColor;
+
+            // 3. Morph the ACTUAL visible page into a raw print-ready block structure.
+            // By doing this instead of a "clone", html2canvas can 100% accurately read the bounding boxes.
+            sidebar.style.display = 'none';
+            toggleSidebarBtn.style.display = 'none';
+            paperHeader.style.display = 'none';
+            paperToolbar.style.display = 'none';
+            
+            // Un-constrain parents
+            appWrapper.style.display = 'block';
+            appWrapper.style.height = 'auto';
+            appWrapper.style.overflow = 'visible';
+            
+            mainArea.style.display = 'block';
+            mainArea.style.backgroundColor = paperColor === 'yellow' ? '#fcf6d6' : '#ffffff';
+            
+            editorWrapper.style.cssText = `
+                display: block !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                height: auto !important;
+                overflow: visible !important;
+            `;
+            
+            paperContainer.style.cssText = `
+                max-width: none !important;
+                width: 794px !important;
+                margin: 0 auto !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                overflow: visible !important;
+                height: auto !important;
+            `;
+            
+            paperBody.style.cssText = `
+                overflow: visible !important;
+                height: auto !important;
+                display: block !important;
+            `;
+
+            // Apply perfect print margins directly to the editor content
+            // We use ONLY the grid SVG during print so the scissor cut lines don't get printed on the actual PDF!
+            editorContent.style.cssText = `
+                width: 794px !important;
+                min-height: 1116px !important;
+                padding: 72px 24px 72px 64px !important; 
+                background-color: ${paperColor === 'yellow' ? '#fcf6d6' : '#ffffff'} !important;
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2000' height='36'%3E%3Crect x='40' y='0' width='1' height='36' fill='rgba(248,113,113,0.6)'/%3E%3Crect x='46' y='0' width='1' height='36' fill='rgba(248,113,113,0.6)'/%3E%3Crect x='0' y='35' width='2000' height='1' fill='%2393c5fd'/%3E%3C/svg%3E") !important;
+                background-size: 2000px 36px !important;
+                background-repeat: repeat !important;
+                background-position: 0 29px !important;
+                box-sizing: border-box !important;
+                margin: 0 auto !important;
+            `;
+
+            // Reset scroll to top
+            window.scrollTo(0, 0);
+
+            // Wait a moment for DOM reflow
+            setTimeout(() => {
+                const opt = {
+                    margin:       0, 
+                    filename:     `${activeNote.title.replace(/\s+/g, '_')}_Exam_Notes.pdf`,
+                    image:        { type: 'jpeg', quality: 1 },
+                    html2canvas:  { 
+                        scale: 2, 
+                        useCORS: true, 
+                        // Let it default to document flow instead of forcing bounds
+                    },
+                    // 1116px is a magical number: it is perfectly divisible by 36 (line height)
+                    // meaning page breaks will always cut exactly on a line!
+                    jsPDF:        { unit: 'px', format: [794, 1116], orientation: 'portrait' }
+                };
+
+                html2pdf().set(opt).from(editorContent).save().then(() => {
+                    // 4. Instantly restore everything back to normal!
+                    sidebar.style.display = origSidebarDisplay;
+                    toggleSidebarBtn.style.display = origToggleDisplay;
+                    paperHeader.style.display = origHeaderDisplay;
+                    paperToolbar.style.display = origToolbarDisplay;
+                    
+                    appWrapper.style.display = '';
+                    appWrapper.style.height = '';
+                    appWrapper.style.overflow = '';
+                    mainArea.style.display = '';
+                    mainArea.style.backgroundColor = origMainBg;
+
+                    editorWrapper.style.cssText = origWrapperCSS;
+                    paperContainer.style.cssText = origContainerCSS;
+                    paperBody.style.cssText = origBodyCSS;
+                    editorContent.style.cssText = origContentCSS;
+                    
+                    document.body.removeChild(loadingOverlay);
+                }).catch(err => {
+                    console.error("Export failed:", err);
+                    alert("PDF generation failed.");
+                    document.body.removeChild(loadingOverlay);
+                    // Reload the page to ensure layout is safe if a critical crash occurs
+                    window.location.reload(); 
+                });
+            }, 600);
+        }
+
+        // Editor Formatting
+        function insertHtmlAtCursor(html) {
+            if (document.queryCommandSupported('insertHTML')) {
+                document.execCommand('insertHTML', false, html);
+            } else {
+                const selection = window.getSelection();
+                if (!selection.rangeCount) return;
+                let range = selection.getRangeAt(0);
+                range.deleteContents();
+                const el = document.createElement('div');
+                el.innerHTML = html;
+                const frag = document.createDocumentFragment();
+                let node, lastNode;
+                while ((node = el.firstChild)) {
+                    lastNode = frag.appendChild(node);
+                }
+                range.insertNode(frag);
+                if (lastNode) {
+                    range = range.cloneRange();
+                    range.setStartAfter(lastNode);
+                    range.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            }
+        }
+
+        function applyFormat(type) {
+            editorContent.focus();
+            const sel = window.getSelection();
+            const text = sel.toString() || 'Text';
+            
+            switch(type) {
+                case 'sub': document.execCommand('subscript'); break;
+                case 'sup': document.execCommand('superscript'); break;
+                case 'center': document.execCommand('justifyCenter'); break;
+                case 'smallcaps': 
+                    insertHtmlAtCursor(`<span style="font-variant: small-caps; text-transform: lowercase; font-weight: bold;">${text}</span>`);
+                    break;
+                case 'doubleSize':
+                    // Force line-height 72px so it exactly takes two vertical grid lines without shifting text below it
+                    insertHtmlAtCursor(`<span style="font-size: 48px; line-height: 72px;">${text}</span>`);
+                    break;
+                case 'rect':
+                    // Strict inline box that doesn't violate line-height
+                    insertHtmlAtCursor(`&nbsp;<span style="border: 1px solid #57534e; border-radius: 4px; background: rgba(255,255,255,0.4); margin: 0 2px;">${text}</span>&nbsp;`);
+                    break;
+                case 'explosion':
+                    // Box-like burst strictly AROUND the word, completely un-interfering with layout
+                    insertHtmlAtCursor(`&nbsp;<span style="position: relative; display: inline-block;"><svg style="position: absolute; top: -5%; left: -5%; width: 110%; height: 110%; pointer-events: none; z-index: 0;" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M 5 10 L 15 3 L 85 5 L 95 10 L 98 50 L 95 90 L 85 95 L 15 97 L 5 90 Z" fill="none" stroke="#ca8a04" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg><span style="position: relative; z-index: 1;">${text}</span></span>&nbsp;`);
+                    break;
+                case 'hl-green':
+                    insertHtmlAtCursor(`<span style="background-color: #86efac; mix-blend-mode: multiply; padding: 2px 4px; border-radius: 4px;">${text}</span>`);
+                    break;
+                case 'hl-orange':
+                    insertHtmlAtCursor(`<span style="background-color: #fdba74; mix-blend-mode: multiply; padding: 2px 4px; border-radius: 4px;">${text}</span>`);
+                    break;
+                case 'hl-pink':
+                    insertHtmlAtCursor(`<span style="background-color: #f9a8d4; mix-blend-mode: multiply; padding: 2px 4px; border-radius: 4px;">${text}</span>`);
+                    break;
+                case 'hl-yellow':
+                    insertHtmlAtCursor(`<span style="background-color: #fef08a; mix-blend-mode: multiply; padding: 2px 4px; border-radius: 4px;">${text}</span>`);
+                    break;
+                case 'hl-blue':
+                    insertHtmlAtCursor(`<span style="background-color: #93c5fd; mix-blend-mode: multiply; padding: 2px 4px; border-radius: 4px;">${text}</span>`);
+                    break;
+            }
+            updateNoteData('content', editorContent.innerHTML);
+        }
+
+        // Event Listeners
+        addNoteBtn.addEventListener('click', createNote);
+        emptyStateBtn.addEventListener('click', createNote);
+        toggleSidebarBtn.addEventListener('click', toggleSidebar);
+        toggleFocusBtn.addEventListener('click', toggleFocus);
+        downloadBtn.addEventListener('click', downloadCurrentNoteAsPDF);
+
+        noteTitleInput.addEventListener('input', (e) => updateNoteData('title', e.target.value));
+        editorContent.addEventListener('input', (e) => updateNoteData('content', e.target.innerHTML));
+
+        // Format button listeners
+        formatBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const format = btn.getAttribute('data-format');
+                applyFormat(format);
+            });
+        });
+
+        // Smart Editor key interceptor (Space to exit formats, Enter to exit center, slash commands)
+        editorContent.addEventListener('keydown', (e) => {
+            
+            // 1. Auto-Revert Centering on Enter
+            if (e.key === 'Enter') {
+                const sel = window.getSelection();
+                if(sel.rangeCount > 0) {
+                    const node = sel.anchorNode;
+                    const parent = node.nodeType === 3 ? node.parentElement : node;
+                    const alignDiv = parent.closest('div');
+                    
+                    if (alignDiv && (alignDiv.style.textAlign === 'center' || document.queryCommandState('justifyCenter'))) {
+                        // Allow default line break, but immediately revert the new line to Left alignment
+                        setTimeout(() => {
+                            document.execCommand('justifyLeft');
+                        }, 0);
+                    }
+                }
+            }
+            
+            // 2. Auto-Stop formatting on Space
+            if (e.key === ' ' || e.code === 'Space') {
+                // Handle Native Sub/Sup toggle off
+                if (document.queryCommandState('subscript')) {
+                    e.preventDefault();
+                    document.execCommand('insertHTML', false, '&nbsp;');
+                    document.execCommand('subscript');
+                    return;
+                }
+                if (document.queryCommandState('superscript')) {
+                    e.preventDefault();
+                    document.execCommand('insertHTML', false, '&nbsp;');
+                    document.execCommand('superscript');
+                    return;
+                }
+
+                // Handle custom span exits (Small caps)
+                const sel = window.getSelection();
+                if (sel.rangeCount > 0) {
+                    let node = sel.anchorNode;
+                    let parent = node.nodeType === 3 ? node.parentElement : node;
+                    if (parent && parent.tagName === 'SPAN' && parent.style.fontVariant === 'small-caps') {
+                        e.preventDefault();
+                        const range = sel.getRangeAt(0);
+                        const spaceNode = document.createTextNode('\u00A0');
+                        parent.parentNode.insertBefore(spaceNode, parent.nextSibling);
+                        range.setStartAfter(spaceNode);
+                        range.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                        return;
+                    }
+                }
+            }
+
+            // 3. Slash Commands Handlers (/1 to /11)
+            if (e.key === 'Enter' || e.key === ' ') {
+                const sel = window.getSelection();
+                if (sel.rangeCount) {
+                    const node = sel.focusNode;
+                    if (node && node.nodeType === 3) { 
+                        const text = node.textContent;
+                        const match = text.match(/\/([1-9]|1[0-1])$/);
+                        if (match) {
+                            e.preventDefault();
+                            const range = sel.getRangeAt(0);
+                            const cmdLength = match[0].length;
+                            range.setStart(node, range.endOffset - cmdLength);
+                            range.deleteContents();
+                            
+                            const formats = ['sub', 'sup', 'smallcaps', 'doubleSize', 'rect', 'explosion', 'hl-green', 'hl-orange', 'hl-pink', 'hl-yellow', 'hl-blue'];
+                            applyFormat(formats[parseInt(match[1]) - 1]);
+                        }
+                    }
+                }
+            }
+        });
+
+        // Initialization
+        renderSidebar();
+        renderActiveNote();
+        lucide.createIcons();
+
+    </script>
+</body>
+</html>
